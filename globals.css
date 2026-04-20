@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS variables ─────────────────────────────────────── */
+:root {
+  --bg-base:        #040911;
+  --bg-surface:     #070d18;
+  --bg-surface-2:   #0a1525;
+  --border-dim:     #0b1e30;
+  --border-medium:  #0e2232;
+  --text-primary:   #c0d4e4;
+  --text-secondary: #6a8ba8;
+  --text-muted:     #2d4a62;
+  --text-ghost:     #1a2e40;
+  --accent-blue:    #4f8ef7;
+  --accent-green:   #34d399;
+  --accent-red:     #f87171;
+  --accent-yellow:  #fbbf24;
+}
+
+/* ── Base resets ────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 14px;
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans), 'IBM Plex Sans', system-ui, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Font utilities ─────────────────────────────────────── */
+.font-sans {
+  font-family: var(--font-sans), 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+.font-mono {
+  font-family: var(--font-mono), 'IBM Plex Mono', 'Menlo', monospace;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: #1a3550;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2a5070;
+}
+
+/* ── Table scrolling on mobile ──────────────────────────── */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #1a3550 var(--bg-base);
+}
+
+/* ── Subtle scan-line effect (optional, apply to body) ──── */
+.scanlines::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}

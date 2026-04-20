@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-base:        #f2f1ec;
+  --bg-surface:     #ffffff;
+  --bg-surface-2:   #f8f7f3;
+  --border-dim:     #e5e3dd;
+  --border-medium:  #d4d1c9;
+  --text-primary:   #202e4a;
+  --text-secondary: #4a5e78;
+  --text-muted:     #8a96a8;
+  --text-ghost:     #c8cdd6;
+  --accent-blue:    #007cba;
+  --accent-green:   #16a34a;
+  --accent-red:     #dc2626;
+  --accent-yellow:  #d97706;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 14px;
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans), 'IBM Plex Sans', system-ui, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-sans {
+  font-family: var(--font-sans), 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+.font-mono {
+  font-family: var(--font-mono), 'IBM Plex Mono', 'Menlo', monospace;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: #b8b4ac;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9a9690;
+}
+
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #b8b4ac var(--bg-base);
+}
