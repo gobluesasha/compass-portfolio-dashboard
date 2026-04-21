@@ -180,7 +180,7 @@ export default function OverviewPage() {
       if (!yld && !rate) return null;
       const annualIncome = rate !== null
         ? (p.shares * rate)
-        : (p.valueK * 1000 * (yld ?? 0));
+        : (p.valueK * 1000 * ((yld ?? 0) / 100)); // yld is already in % form from Yahoo
       return { sym: p.sym, name: p.issuerName, yld, annualIncome };
     })
     .filter((x): x is NonNullable<typeof x> => x !== null && x.annualIncome > 0)
@@ -349,7 +349,7 @@ export default function OverviewPage() {
                       <span className="font-mono text-xs font-bold text-[#007cba] w-12 shrink-0 group-hover:underline">{p.sym}</span>
                       <span className="text-xs text-[#4a5e78] w-40 shrink-0 truncate">{p.name}</span>
                       <span className="font-mono text-[11px] text-[#8a96a8] w-14 text-right shrink-0">
-                        {p.yld !== null ? `${(p.yld * 100).toFixed(2)}%` : ''}
+                        {p.yld !== null ? `${p.yld.toFixed(2)}%` : ''}
                       </span>
                       <span className="font-mono text-xs font-semibold text-[#202e4a] w-20 text-right shrink-0">
                         ${(p.annualIncome / 1000).toFixed(1)}K/yr
@@ -362,73 +362,70 @@ export default function OverviewPage() {
           </div>
         </section>
 
-        {/* Portfolio Analytics */}
+        {/* Portfolio Analytics + 13-F sidebar */}
         <section className="flex flex-col gap-3">
           <SectionDivider title="Portfolio Analytics" right={
             <span className="text-[10px] text-[#8a96a8] font-mono">Based on Q4 2025 13-F weights</span>
           } />
-          <PortfolioAnalytics />
-        </section>
-
-        {/* 13-F Filing card (standalone) */}
-        <section className="flex flex-col gap-3">
-          <SectionDivider title="SEC Filing Tracker" />
-          <div className="max-w-xs bg-white rounded-lg border border-[#e5e3dd] shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-[#eeece7]">
-              <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#8a96a8]">SEC 13-F Filing</span>
+          <div className="flex gap-4 items-start">
+            <div className="flex-1 min-w-0">
+              <PortfolioAnalytics />
             </div>
-            <div className="px-5 py-4 flex flex-col gap-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-[10px] text-[#8a96a8] font-semibold uppercase tracking-wide">Period</span>
-                <span className="text-xs font-semibold text-[#202e4a]">Q1 2026 (Jan – Mar)</span>
+            {/* 13-F Filing — sidebar */}
+            <div className="w-56 shrink-0 bg-white rounded-lg border border-[#e5e3dd] shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#eeece7]">
+                <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#8a96a8]">SEC 13-F Filing</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-[10px] text-[#8a96a8] font-semibold uppercase tracking-wide">Deadline</span>
-                <span className="text-xs font-semibold text-[#202e4a]">May 15, 2026</span>
-              </div>
-              <div className={`rounded-lg px-4 py-3 ${
-                daysUntil13F <= 14 ? 'bg-red-50 border border-red-200'
-                : daysUntil13F <= 30 ? 'bg-amber-50 border border-amber-200'
-                : 'bg-emerald-50 border border-emerald-200'
-              }`}>
-                <p className={`text-[9px] uppercase tracking-widest font-semibold mb-0.5 ${
-                  daysUntil13F <= 14 ? 'text-red-600' : daysUntil13F <= 30 ? 'text-amber-600' : 'text-emerald-600'
-                }`}>Days Remaining</p>
-                <p className={`text-3xl font-mono font-bold ${
-                  daysUntil13F <= 14 ? 'text-red-600' : daysUntil13F <= 30 ? 'text-amber-600' : 'text-emerald-600'
-                }`}>{daysUntil13F}</p>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[10px] text-[#8a96a8] font-semibold uppercase tracking-wide">Last Filed</span>
-                <span className="text-xs text-[#4a5e78]">Q4 2025 · Feb 14, 2026</span>
+              <div className="px-4 py-3 flex flex-col gap-3">
+                <div>
+                  <p className="text-[9px] uppercase tracking-wide text-[#8a96a8] font-semibold mb-0.5">Filing Period</p>
+                  <p className="text-xs font-semibold text-[#202e4a]">Q1 2026 (Jan – Mar)</p>
+                </div>
+                <div>
+                  <p className="text-[9px] uppercase tracking-wide text-[#8a96a8] font-semibold mb-0.5">Deadline</p>
+                  <p className="text-xs font-semibold text-[#202e4a]">May 15, 2026</p>
+                </div>
+                <div className={`rounded-lg px-3 py-2.5 ${
+                  daysUntil13F <= 14 ? 'bg-red-50 border border-red-200'
+                  : daysUntil13F <= 30 ? 'bg-amber-50 border border-amber-200'
+                  : 'bg-emerald-50 border border-emerald-200'
+                }`}>
+                  <p className={`text-[9px] uppercase tracking-widest font-semibold mb-0.5 ${
+                    daysUntil13F <= 14 ? 'text-red-600' : daysUntil13F <= 30 ? 'text-amber-600' : 'text-emerald-600'
+                  }`}>Days Remaining</p>
+                  <p className={`text-3xl font-mono font-bold ${
+                    daysUntil13F <= 14 ? 'text-red-600' : daysUntil13F <= 30 ? 'text-amber-600' : 'text-emerald-600'
+                  }`}>{daysUntil13F}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] uppercase tracking-wide text-[#8a96a8] font-semibold mb-0.5">Last Filed</p>
+                  <p className="text-xs text-[#4a5e78]">Q4 2025 · Feb 14, 2026</p>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Top Holdings Correlation Heatmap */}
+        {/* Top Holdings Correlation — matrix left, summary right */}
         <section className="flex flex-col gap-3">
           <SectionDivider title="Top Holdings Correlation" />
           <div className="bg-white rounded-lg border border-[#e5e3dd] shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-[#eeece7] flex flex-wrap items-center justify-between gap-2">
+            <div className="px-5 py-3 border-b border-[#eeece7] flex flex-wrap items-center justify-between gap-2">
               <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#8a96a8]">Top 10 Positions — Pairwise Correlation Matrix</span>
               <span className="text-[9px] text-[#a8a49e] font-mono italic">Integration point: requires 1-year daily return series from market data feed</span>
             </div>
-            <div className="p-5">
-              {/* Legend */}
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-[10px] text-[#8a96a8] font-mono">−1</span>
-                <div className="flex h-3 rounded overflow-hidden" style={{ width: 120 }}>
-                  {Array.from({ length: 20 }).map((_, i) => {
-                    const v = -1 + (i / 19) * 2;
-                    return <div key={i} style={{ flex: 1, background: corrColor(v) }} />;
-                  })}
-                </div>
-                <span className="text-[10px] text-[#8a96a8] font-mono">+1</span>
-                <span className="ml-3 text-[9px] text-[#a8a49e]">blue = negative · white = uncorrelated · red = positive</span>
-              </div>
+            <div className="p-5 flex gap-8 items-start flex-wrap">
               {/* Matrix */}
-              <div style={{ overflowX: 'auto' }}>
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] text-[#8a96a8] font-mono">−1</span>
+                  <div className="flex h-2.5 rounded overflow-hidden" style={{ width: 100 }}>
+                    {Array.from({ length: 20 }).map((_, i) => (
+                      <div key={i} style={{ flex: 1, background: corrColor(-1 + (i / 19) * 2) }} />
+                    ))}
+                  </div>
+                  <span className="text-[10px] text-[#8a96a8] font-mono">+1</span>
+                </div>
                 <table style={{ borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
@@ -448,8 +445,7 @@ export default function OverviewPage() {
                           return (
                             <td key={j} style={{
                               width: 46, height: 30, textAlign: 'center',
-                              background: corrColor(r),
-                              fontSize: 9, fontWeight: 600,
+                              background: corrColor(r), fontSize: 9, fontWeight: 600,
                               color: Math.abs(r) > 0.55 || isDiag ? '#fff' : '#202e4a',
                               border: '1px solid rgba(255,255,255,0.4)',
                             }}>
@@ -462,13 +458,48 @@ export default function OverviewPage() {
                   </tbody>
                 </table>
               </div>
-              {/* Takeaway */}
-              <div className={`mt-4 flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs ${AVG_CORR > 0.6 ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-[#f8f7f3] border border-[#e5e3dd] text-[#4a5e78]'}`}>
-                {AVG_CORR > 0.6 && <span className="shrink-0">⚠</span>}
-                <span>
-                  Average pairwise correlation: <strong className="font-mono">{AVG_CORR.toFixed(2)}</strong>
-                  {AVG_CORR > 0.6 && ' — high concentration risk: holdings moving together'}
-                </span>
+
+              {/* Summary panel */}
+              <div className="flex-1 min-w-[200px] flex flex-col gap-4 pt-1">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-[#8a96a8] font-semibold mb-1">Average Pairwise Correlation</p>
+                  <p className={`text-3xl font-mono font-bold ${AVG_CORR > 0.6 ? 'text-red-600' : 'text-[#202e4a]'}`}>
+                    {AVG_CORR.toFixed(2)}
+                  </p>
+                  <div className={`mt-2 flex items-center gap-1.5 text-xs ${AVG_CORR > 0.6 ? 'text-red-600' : 'text-emerald-600'}`}>
+                    <span>{AVG_CORR > 0.6 ? '⚠' : '✓'}</span>
+                    <span>{AVG_CORR > 0.6 ? 'High concentration risk — holdings moving together' : 'Within diversification guidelines'}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-[#8a96a8] font-semibold mb-2">Highest Correlated Pairs</p>
+                  <div className="flex flex-col gap-1.5">
+                    {[
+                      { a: 'MSFT', b: 'GOOGL', r: 0.71, note: 'Both mega-cap tech' },
+                      { a: 'TMO',  b: 'DHR',   r: 0.62, note: 'Life sciences peers' },
+                      { a: 'JNJ',  b: 'TMO',   r: 0.58, note: 'Healthcare overlap' },
+                    ].map(p => (
+                      <div key={`${p.a}-${p.b}`} className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-sm shrink-0" style={{ background: corrColor(p.r) }} />
+                        <span className="font-mono text-[11px] font-bold text-[#202e4a] w-20 shrink-0">{p.a} · {p.b}</span>
+                        <span className="font-mono text-[11px] text-[#007cba]">{p.r.toFixed(2)}</span>
+                        <span className="text-[10px] text-[#8a96a8]">{p.note}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded border border-dashed border-[#d4d1c9] bg-[#f8f7f3] px-3 py-2.5">
+                  <p className="text-[10px] font-medium text-[#8a96a8] mb-1">Integration point</p>
+                  <p className="text-[10px] text-[#a8a49e] leading-relaxed">
+                    Live values require a 1-year daily return series per holding from a market data feed. Connect to returns API to auto-populate this matrix.
+                  </p>
+                </div>
+
+                <p className="text-[9px] text-[#a8a49e] font-mono italic">
+                  Values shown are static placeholders — not real correlations
+                </p>
               </div>
             </div>
           </div>
