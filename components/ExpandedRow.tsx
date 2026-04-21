@@ -232,16 +232,17 @@ function fmtMult(v: number | null, decimals = 1): string | null {
 export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
+  const [bioExpanded, setBioExpanded] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
     if (isOpen) {
-      // Measure after a tick to let content render
       requestAnimationFrame(() => {
         if (containerRef.current) setHeight(containerRef.current.scrollHeight);
       });
     } else {
       setHeight(0);
+      setBioExpanded(false);
     }
   }, [isOpen, position]);
 
@@ -260,7 +261,7 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-0 border-t border-[#d4d1c9] bg-[#faf9f6]">
 
           {/* ── LEFT: Chart + Price Info ── */}
-          <div className="lg:col-span-2 p-5 border-r border-[#e5e3dd] flex flex-col gap-5">
+          <div className="lg:col-span-2 p-4 border-r border-[#e5e3dd] flex flex-col gap-3">
 
             {/* Sector / Industry / Delta tags */}
             <div className="flex flex-wrap items-center gap-2">
@@ -287,13 +288,21 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
               )}
             </div>
 
-            {/* Business summary */}
+            {/* Business summary — expandable */}
             {qualitative.businessSummary && (
               <div>
                 <SectionHeader title="Business Overview" />
-                <p className="text-xs text-[#4a5e78] leading-relaxed line-clamp-4">
+                <p className={`text-xs text-[#4a5e78] leading-relaxed ${bioExpanded ? '' : 'line-clamp-3'}`}>
                   {qualitative.businessSummary}
                 </p>
+                {qualitative.businessSummary.length > 200 && (
+                  <button
+                    onClick={e => { e.stopPropagation(); setBioExpanded(v => !v); }}
+                    className="mt-1 text-[10px] text-[#007cba] hover:underline font-semibold"
+                  >
+                    {bioExpanded ? 'Show less ↑' : 'Show more ↓'}
+                  </button>
+                )}
               </div>
             )}
 
@@ -301,12 +310,10 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
             <div>
               <SectionHeader title="Price Chart · 90 Days" />
               {market.sparkline && market.sparkline.length > 1 ? (
-                <Sparkline data={market.sparkline} />
+                <Sparkline data={market.sparkline} height={48} />
               ) : (
-                <div className="w-full h-20 rounded border border-dashed border-[#c8c4bc] bg-white flex items-center justify-center">
-                  <span className="text-[10px] text-[#8a96a8] animate-pulse">
-                    Loading chart data…
-                  </span>
+                <div className="w-full h-14 rounded border border-dashed border-[#c8c4bc] bg-white flex items-center justify-center">
+                  <span className="text-[10px] text-[#8a96a8] animate-pulse">Loading chart data…</span>
                 </div>
               )}
             </div>
@@ -346,7 +353,7 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
           </div>
 
           {/* ── RIGHT ── */}
-          <div className="lg:col-span-3 p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="lg:col-span-3 p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
 
             {/* Analyst consensus */}
             <div className="md:col-span-2">
@@ -399,31 +406,33 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
               </div>
             </div>
 
-            {/* Investment Notes — full-width thesis framework */}
+            {/* Investment Notes — compact thesis framework */}
             <div className="md:col-span-2">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-2">
                 <span className="text-[11px] font-semibold text-[#007cba] tracking-wide">Investment Notes</span>
                 <div className="flex-1 h-px bg-[#e5e3dd]" />
                 <button
                   disabled
                   title="Integration point — connect to notes CMS or internal system"
-                  className="flex items-center gap-1 px-2.5 py-1 rounded border border-[#d4d1c9] bg-[#f2f1ec] text-[10px] text-[#a8a49e] cursor-not-allowed select-none"
-                >
-                  <span>✏</span> Edit Notes
-                </button>
+                  className="text-[10px] text-[#a8a49e] border border-[#d4d1c9] rounded px-2 py-0.5 cursor-not-allowed select-none"
+                >✏ Edit Notes</button>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Left column */}
-                <div className="flex flex-col gap-4">
-                  <ThesisField label="Investment Thesis" placeholder="2–3 sentence summary of the investment case." />
-                  <ThesisBullets label="What Needs to Go Right" />
-                  <ThesisBullets label="Kill Criteria / Sell Triggers" />
-                </div>
-                {/* Right column */}
-                <div className="flex flex-col gap-4">
-                  <ThesisField label="Key Catalysts (Next 90 Days)" placeholder="Near-term events or data points that could move the thesis." />
-                  <ThesisStatus />
+              <div className="rounded border border-dashed border-[#d4d1c9] bg-white px-4 py-3 flex flex-col gap-2">
+                {[
+                  { label: 'Investment Thesis',         hint: '2–3 sentence summary' },
+                  { label: 'What Needs to Go Right',    hint: '3 key assumptions' },
+                  { label: 'Kill Criteria / Sell Triggers', hint: '3 sell triggers' },
+                  { label: 'Key Catalysts (Next 90d)',  hint: 'near-term events' },
+                ].map(f => (
+                  <div key={f.label} className="flex items-baseline gap-3">
+                    <span className="text-[10px] font-medium text-[#8a96a8] w-40 shrink-0">{f.label}</span>
+                    <span className="text-[10px] text-[#a8a49e] italic">[Integration point — awaiting investment team · {f.hint}]</span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-3 pt-1 border-t border-[#f2f1ec] mt-1">
+                  <span className="text-[10px] font-medium text-[#8a96a8] w-40 shrink-0">Thesis Status</span>
+                  <span className="inline-block px-2 py-0.5 rounded text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-wide">under review</span>
+                  <span className="text-[10px] text-[#c8cdd6] ml-auto font-mono">Last review: —</span>
                 </div>
               </div>
             </div>
