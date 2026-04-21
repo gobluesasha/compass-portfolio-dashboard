@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { PORTFOLIO, PORTFOLIO_STATS } from '../lib/portfolioData';
 import { computeSectorAllocation } from '../lib/historicalData';
+
+const PortfolioAnalytics = dynamic(() => import('../components/PortfolioAnalytics'), { ssr: false });
 
 type BenchmarkItem = {
   symbol: string; label: string; format: string;
@@ -329,11 +332,11 @@ export default function OverviewPage() {
                 <div className="divide-y divide-[#f5f4f0]">
                   {dividendPositions.slice(0, 8).map(p => (
                     <Link href={`/portfolio?sym=${p.sym}`} key={p.sym}
-                      className="flex items-center gap-3 px-5 py-2.5 hover:bg-[#f8f7f3] transition-colors group">
+                      className="flex items-center gap-0 px-5 py-2 hover:bg-[#f8f7f3] transition-colors group">
                       <span className="font-mono text-xs font-bold text-[#007cba] w-12 shrink-0 group-hover:underline">{p.sym}</span>
-                      <span className="text-xs text-[#4a5e78] flex-1 truncate">{p.name}</span>
-                      <span className="font-mono text-[11px] text-[#8a96a8] w-14 text-right shrink-0">
-                        {p.yld !== null ? `${(p.yld * 100).toFixed(2)}% yld` : ''}
+                      <span className="text-xs text-[#4a5e78] w-44 shrink-0 truncate">{p.name}</span>
+                      <span className="font-mono text-[11px] text-[#8a96a8] w-16 text-right shrink-0">
+                        {p.yld !== null ? `${(p.yld * 100).toFixed(2)}%` : ''}
                       </span>
                       <span className="font-mono text-xs font-semibold text-[#202e4a] w-20 text-right shrink-0">
                         ${(p.annualIncome / 1000).toFixed(1)}K/yr
@@ -344,6 +347,14 @@ export default function OverviewPage() {
               </>
             )}
           </div>
+        </section>
+
+        {/* Portfolio Analytics */}
+        <section className="flex flex-col gap-3">
+          <SectionDivider title="Portfolio Analytics" right={
+            <span className="text-[10px] text-[#8a96a8] font-mono">Based on Q4 2025 13-F weights</span>
+          } />
+          <PortfolioAnalytics />
         </section>
 
         {/* Sector Allocation + 13-F Filing */}

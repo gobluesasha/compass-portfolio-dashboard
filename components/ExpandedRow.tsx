@@ -151,6 +151,74 @@ function AnalystGauge({ rating, target, current, analysts }: {
   );
 }
 
+function ThesisField({ label, placeholder }: { label: string; placeholder: string }) {
+  return (
+    <div>
+      <span className="text-[10px] font-medium text-[#8a96a8] tracking-wide">{label}</span>
+      <div className="mt-1.5 rounded border border-dashed border-[#c8c4bc] bg-white px-3 py-2.5">
+        <p className="text-[11px] text-[#a8a49e] italic leading-relaxed">
+          [Integration point: awaiting input from investment team]
+        </p>
+        <p className="text-[10px] text-[#c8cdd6] mt-1">{placeholder}</p>
+      </div>
+    </div>
+  );
+}
+
+function ThesisBullets({ label }: { label: string }) {
+  return (
+    <div>
+      <span className="text-[10px] font-medium text-[#8a96a8] tracking-wide">{label}</span>
+      <div className="mt-1.5 rounded border border-dashed border-[#c8c4bc] bg-white px-3 py-2.5 flex flex-col gap-1.5">
+        {[1, 2, 3].map(n => (
+          <div key={n} className="flex items-start gap-2">
+            <span className="text-[#c8cdd6] text-[10px] mt-0.5 shrink-0">•</span>
+            <p className="text-[11px] text-[#a8a49e] italic">
+              [Integration point: awaiting input from investment team]
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const THESIS_STATUS_STYLES = {
+  intact:         'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'under review': 'bg-amber-50 text-amber-700 border-amber-200',
+  broken:         'bg-red-50 text-red-600 border-red-200',
+};
+
+function ThesisStatus() {
+  const status = 'under review' as keyof typeof THESIS_STATUS_STYLES;
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <span className="text-[10px] font-medium text-[#8a96a8] tracking-wide">Thesis Status</span>
+        <div className="mt-1.5 flex items-center gap-2">
+          <span className={`inline-block px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wide border ${THESIS_STATUS_STYLES[status]}`}>
+            {status}
+          </span>
+          <span className="text-[10px] text-[#a8a49e] italic">[Integration point]</span>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <span className="text-[10px] font-medium text-[#8a96a8] tracking-wide">Last Thesis Review</span>
+          <p className="mt-1 text-[11px] text-[#a8a49e] italic font-mono">[Awaiting input]</p>
+        </div>
+        <div>
+          <span className="text-[10px] font-medium text-[#8a96a8] tracking-wide">Days Since Review</span>
+          <div className="mt-1 flex items-center gap-1.5">
+            <span className="text-[11px] font-mono font-semibold text-[#c8cdd6]">—</span>
+            <span className="text-[9px] text-red-400 italic font-mono">no review on record</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function fmtPct(v: number | null, decimals = 1, isRatio = false): string | null {
   if (v === null) return null;
   const val = isRatio ? v * 100 : v;
@@ -331,21 +399,31 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
               </div>
             </div>
 
-            {/* Qualitative */}
-            <div>
-              <SectionHeader title="Investment Notes" />
-              <div className="flex flex-col gap-3">
-                <div>
-                  <span className="text-[10px] font-medium text-[#8a96a8] tracking-wide">Investment Thesis</span>
-                  <p className="mt-1 text-xs text-[#4a5e78] leading-relaxed">{qualitative.thesis ?? '— Awaiting notes —'}</p>
+            {/* Investment Notes — full-width thesis framework */}
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[11px] font-semibold text-[#007cba] tracking-wide">Investment Notes</span>
+                <div className="flex-1 h-px bg-[#e5e3dd]" />
+                <button
+                  disabled
+                  title="Integration point — connect to notes CMS or internal system"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded border border-[#d4d1c9] bg-[#f2f1ec] text-[10px] text-[#a8a49e] cursor-not-allowed select-none"
+                >
+                  <span>✏</span> Edit Notes
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Left column */}
+                <div className="flex flex-col gap-4">
+                  <ThesisField label="Investment Thesis" placeholder="2–3 sentence summary of the investment case." />
+                  <ThesisBullets label="What Needs to Go Right" />
+                  <ThesisBullets label="Kill Criteria / Sell Triggers" />
                 </div>
-                <div>
-                  <span className="text-[10px] font-medium text-[#8a96a8] tracking-wide">What Needs to Go Right</span>
-                  <p className="mt-1 text-xs text-[#4a5e78] leading-relaxed">{qualitative.whatNeedsToGoRight ?? '—'}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] font-medium text-[#8a96a8] tracking-wide">Sell Criteria</span>
-                  <p className="mt-1 text-xs text-[#4a5e78] leading-relaxed">{qualitative.sellCriteria ?? '—'}</p>
+                {/* Right column */}
+                <div className="flex flex-col gap-4">
+                  <ThesisField label="Key Catalysts (Next 90 Days)" placeholder="Near-term events or data points that could move the thesis." />
+                  <ThesisStatus />
                 </div>
               </div>
             </div>
