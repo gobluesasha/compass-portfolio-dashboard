@@ -1,11 +1,20 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer,
   PieChart, Pie,
 } from 'recharts';
 import { PORTFOLIO, PORTFOLIO_STATS } from '../lib/portfolioData';
 import { computeSectorAllocation } from '../lib/historicalData';
+type PortfolioRiskResult = {
+  portfolioBeta:  number | null;
+  volatilityAnn:  number | null;
+  var95_1day:     number | null;
+  sharpeRatio:    number | null;
+  riskFreeRate:   number | null;
+  dataPoints:     number;
+};
 
 const CORE_THRESHOLD = 0.027;
 
@@ -46,20 +55,35 @@ function SectionHeader({ title, note }: { title: string; note?: string }) {
   );
 }
 
-function RiskPlaceholder({ label }: { label: string }) {
+function RiskCard({ label, value, sub, loading }: {
+  label: string; value: string | null; sub?: string; loading: boolean;
+}) {
   return (
-    <div
-      className="rounded-lg border border-dashed border-[#d4d1c9] bg-[#f8f7f3] px-4 py-3.5 flex flex-col gap-1"
-      title="Integration point: risk analytics engine"
-    >
+    <div className="rounded-lg border border-[#d4d1c9] bg-[#f8f7f3] px-4 py-3.5 flex flex-col gap-1">
       <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-[#8a96a8]">{label}</span>
-      <span className="text-xl font-mono font-bold text-[#c8cdd6]">—</span>
-      <span className="text-[9px] text-[#a8a49e] font-mono italic">Integration point: risk engine</span>
+      {loading ? (
+        <span className="text-xl font-mono font-bold text-[#c8cdd6] animate-pulse">…</span>
+      ) : value !== null ? (
+        <span className="text-xl font-mono font-bold text-[#202e4a]">{value}</span>
+      ) : (
+        <span className="text-xl font-mono font-bold text-[#c8cdd6]">—</span>
+      )}
+      {sub && <span className="text-[9px] text-[#a8a49e] font-mono">{sub}</span>}
     </div>
   );
 }
 
 export default function PortfolioAnalytics() {
+  const [risk, setRisk] = useState<PortfolioRiskResult | null>(null);
+  const [riskLoading, setRiskLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/portfolio-risk')
+      .then(r => r.json())
+      .then(j => { setRisk(j.data); setRiskLoading(false); })
+      .catch(() => setRiskLoading(false));
+  }, []);
+
   const sectorAllocation = computeSectorAllocation(PORTFOLIO);
 
   const sectorData = [...sectorAllocation]
@@ -142,12 +166,35 @@ export default function PortfolioAnalytics() {
         </div>
 
         <div className="bg-white rounded-lg border border-[#e5e3dd] shadow-sm overflow-hidden">
-          <SectionHeader title="Portfolio Risk Metrics" note="Integration point: connect to risk analytics engine for live calculations" />
+          <SectionHeader
+            title="Portfolio Risk Metrics"
+            note={risk ? `Computed from ${risk.dataPoints} trading days · core equity positions · 4h cache` : undefined}
+          />
           <div className="p-5 grid grid-cols-2 gap-3">
-            <RiskPlaceholder label="Portfolio Beta" />
-            <RiskPlaceholder label="Volatility (Ann.)" />
-            <RiskPlaceholder label="VaR 95% / 1-Day" />
-            <RiskPlaceholder label="Sharpe Ratio" />
+            <RiskCard
+              label="Portfolio Beta"
+              value={risk?.portfolioBeta !== null && risk?.portfolioBeta !== undefined ? risk.portfolioBeta.toFixed(2) : null}
+              sub="vs. S&P 500 (SPY) · 1-year regression"
+              loading={riskLoading}
+            />
+            <RiskCard
+              label="Volatility (Ann.)"
+              value={risk?.volatilityAnn !== null && risk?.volatilityAnn !== undefined ? `${risk.volatilityAnn.toFixed(1)}%` : null}
+              sub="annualized std dev of daily returns"
+              loading={riskLoading}
+            />
+            <RiskCard
+              label="VaR 95% · 1-Day"
+              value={risk?.var95_1day !== null && risk?.var95_1day !== undefined ? `${risk.var95_1day.toFixed(2)}%` : null}
+              sub="parametric · normal distribution"
+              loading={riskLoading}
+            />
+            <RiskCard
+              label="Sharpe Ratio"
+              value={risk?.sharpeRatio !== null && risk?.sharpeRatio !== undefined ? risk.sharpeRatio.toFixed(2) : null}
+              sub={risk?.riskFreeRate !== null && risk?.riskFreeRate !== undefined ? `rf = ${risk.riskFreeRate.toFixed(2)}% (^IRX)` : 'risk-free: ^IRX'}
+              loading={riskLoading}
+            />
           </div>
         </div>
       </div>
