@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, Fragment } from 'react';
 import { Position, PositionStatus, EarningsResult, PositionDelta } from '../types/portfolio';
 import ExpandedRow from './ExpandedRow';
 import { DataTimestamps } from './PortfolioWrapper';
@@ -165,10 +165,9 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
     const isExpanded = expandedSym === pos.sym;
     const isEven = idx % 2 === 0;
     return (
-      <>
+      <Fragment key={pos.sym}>
         <tr
           id={`row-${pos.sym}`}
-          key={`row-${pos.sym}`}
           onClick={() => setExpandedSym(isExpanded ? null : pos.sym)}
           className={`group cursor-pointer border-l-2 border-b transition-colors duration-100 ${STATUS_ROW_ACCENT[pos.status]} ${
             isExpanded
@@ -242,12 +241,12 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
             ) : <Placeholder />}
           </td>
         </tr>
-        <tr key={`exp-${pos.sym}`}>
+        <tr>
           <td colSpan={13} className="p-0">
             <ExpandedRow position={pos} isOpen={isExpanded} timestamps={timestamps} />
           </td>
         </tr>
-      </>
+      </Fragment>
     );
   };
 
