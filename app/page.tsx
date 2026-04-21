@@ -113,11 +113,29 @@ function SectionDivider({ title, right }: { title: string; right?: React.ReactNo
   );
 }
 
-// ── Average pairwise correlation ──────────────────────────────
+// ── Average pairwise correlation + sorted pairs ───────────────
 const n = TOP10.length;
 let corrSum = 0;
-for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) corrSum += CORR[i][j];
-const AVG_CORR = corrSum / (n * (n - 1) / 2);
+const ALL_PAIRS: { a: string; b: string; r: number }[] = [];
+for (let i = 0; i < n; i++) {
+  for (let j = i + 1; j < n; j++) {
+    corrSum += CORR[i][j];
+    ALL_PAIRS.push({ a: TOP10[i], b: TOP10[j], r: CORR[i][j] });
+  }
+}
+ALL_PAIRS.sort((x, y) => y.r - x.r);
+const AVG_CORR      = corrSum / (n * (n - 1) / 2);
+const HIGHEST_PAIRS = ALL_PAIRS.slice(0, 3);
+const LOWEST_PAIRS  = ALL_PAIRS.slice(-3).reverse();
+
+const PAIR_NOTES: Record<string, string> = {
+  'MSFT·GOOGL': 'Mega-cap tech', 'GOOGL·MSFT': 'Mega-cap tech',
+  'TMO·DHR':    'Life sciences peers', 'DHR·TMO': 'Life sciences peers',
+  'JNJ·TMO':    'Healthcare overlap', 'TMO·JNJ': 'Healthcare overlap',
+  'APH·WMT':    'Industrials vs. Consumer', 'WMT·APH': 'Industrials vs. Consumer',
+  'GOOGL·JNJ':  'Tech vs. Healthcare', 'JNJ·GOOGL': 'Tech vs. Healthcare',
+  'GOOGL·MRK':  'Tech vs. Pharma', 'MRK·GOOGL': 'Tech vs. Pharma',
+};
 
 export default function OverviewPage() {
   const [benchmarks, setBenchmarks] = useState<BenchmarkItem[] | null>(null);
@@ -170,23 +188,6 @@ export default function OverviewPage() {
     .filter(m => m.changePct !== null) as { sym: string; name: string; changePct: number }[];
   const gainers = [...moversData].sort((a, b) => b.changePct - a.changePct).slice(0, 5);
   const losers  = [...moversData].sort((a, b) => a.changePct - b.changePct).slice(0, 5);
-
-  // Dividend income tracker
-  const dividendPositions = PORTFOLIO
-    .map(p => {
-      const q = liveQuotes.find(l => l.symbol === p.sym);
-      const yld = q?.dividendYield ?? null;
-      const rate = q?.dividendRate ?? null;
-      if (!yld && !rate) return null;
-      const annualIncome = rate !== null
-        ? (p.shares * rate)
-        : (p.valueK * 1000 * ((yld ?? 0) / 100)); // yld is already in % form from Yahoo
-      return { sym: p.sym, name: p.issuerName, yld, annualIncome };
-    })
-    .filter((x): x is NonNullable<typeof x> => x !== null && x.annualIncome > 0)
-    .sort((a, b) => b.annualIncome - a.annualIncome);
-
-  const totalAnnualIncome = dividendPositions.reduce((s, p) => s + p.annualIncome, 0);
 
   // 13-F deadline
   const deadline13F = new Date('2026-05-15');
@@ -316,52 +317,6 @@ export default function OverviewPage() {
           </section>
         )}
 
-        {/* Dividend / Income tracker — compact half-width */}
-        <section className="flex flex-col gap-3">
-          <SectionDivider title="Dividend & Income Tracker" />
-          <div className="max-w-xl bg-white rounded-lg border border-[#e5e3dd] shadow-sm overflow-hidden">
-            {dividendPositions.length === 0 ? (
-              <div className="px-5 py-6 text-center">
-                <p className="text-[10px] text-[#8a96a8] animate-pulse">Loading dividend data…</p>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-3 divide-x divide-[#eeece7] border-b border-[#eeece7]">
-                  <div className="px-4 py-3">
-                    <p className="text-[9px] uppercase tracking-widest text-[#8a96a8] font-semibold">Est. Annual Income</p>
-                    <p className="text-lg font-mono font-bold text-[#007cba] mt-0.5">${(totalAnnualIncome / 1000).toFixed(0)}K</p>
-                  </div>
-                  <div className="px-4 py-3">
-                    <p className="text-[9px] uppercase tracking-widest text-[#8a96a8] font-semibold">Payers</p>
-                    <p className="text-lg font-mono font-bold text-[#202e4a] mt-0.5">{dividendPositions.length}</p>
-                  </div>
-                  <div className="px-4 py-3">
-                    <p className="text-[9px] uppercase tracking-widest text-[#8a96a8] font-semibold">Portfolio Yield</p>
-                    <p className="text-lg font-mono font-bold text-[#202e4a] mt-0.5">
-                      {(totalAnnualIncome / (PORTFOLIO_STATS.totalValueK * 1000) * 100).toFixed(2)}%
-                    </p>
-                  </div>
-                </div>
-                <div className="divide-y divide-[#f5f4f0]">
-                  {dividendPositions.slice(0, 8).map(p => (
-                    <Link href={`/portfolio?sym=${p.sym}`} key={p.sym}
-                      className="flex items-center px-4 py-1.5 hover:bg-[#f8f7f3] transition-colors group">
-                      <span className="font-mono text-xs font-bold text-[#007cba] w-12 shrink-0 group-hover:underline">{p.sym}</span>
-                      <span className="text-xs text-[#4a5e78] w-40 shrink-0 truncate">{p.name}</span>
-                      <span className="font-mono text-[11px] text-[#8a96a8] w-14 text-right shrink-0">
-                        {p.yld !== null ? `${p.yld.toFixed(2)}%` : ''}
-                      </span>
-                      <span className="font-mono text-xs font-semibold text-[#202e4a] w-20 text-right shrink-0">
-                        ${(p.annualIncome / 1000).toFixed(1)}K/yr
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </section>
-
         {/* Portfolio Analytics + 13-F sidebar */}
         <section className="flex flex-col gap-3">
           <SectionDivider title="Portfolio Analytics" right={
@@ -415,7 +370,8 @@ export default function OverviewPage() {
               <span className="text-[9px] text-[#a8a49e] font-mono italic">Integration point: requires 1-year daily return series from market data feed</span>
             </div>
             <div className="p-5 flex gap-8 items-start flex-wrap">
-              {/* Matrix */}
+
+              {/* Column 1: Matrix */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-[10px] text-[#8a96a8] font-mono">−1</span>
@@ -459,48 +415,57 @@ export default function OverviewPage() {
                 </table>
               </div>
 
-              {/* Summary panel */}
-              <div className="flex-1 min-w-[200px] flex flex-col gap-4 pt-1">
+              {/* Column 2: Avg corr stat + Highest pairs */}
+              <div className="flex flex-col gap-4 min-w-[180px]">
                 <div>
-                  <p className="text-[10px] uppercase tracking-wide text-[#8a96a8] font-semibold mb-1">Average Pairwise Correlation</p>
+                  <p className="text-[10px] uppercase tracking-wide text-[#8a96a8] font-semibold mb-1">Avg Pairwise Correlation</p>
                   <p className={`text-3xl font-mono font-bold ${AVG_CORR > 0.6 ? 'text-red-600' : 'text-[#202e4a]'}`}>
                     {AVG_CORR.toFixed(2)}
                   </p>
-                  <div className={`mt-2 flex items-center gap-1.5 text-xs ${AVG_CORR > 0.6 ? 'text-red-600' : 'text-emerald-600'}`}>
+                  <div className={`mt-1.5 flex items-center gap-1.5 text-xs ${AVG_CORR > 0.6 ? 'text-red-600' : 'text-emerald-600'}`}>
                     <span>{AVG_CORR > 0.6 ? '⚠' : '✓'}</span>
-                    <span>{AVG_CORR > 0.6 ? 'High concentration risk — holdings moving together' : 'Within diversification guidelines'}</span>
+                    <span>{AVG_CORR > 0.6 ? 'High concentration risk' : 'Within diversification guidelines'}</span>
                   </div>
                 </div>
-
                 <div>
-                  <p className="text-[10px] uppercase tracking-wide text-[#8a96a8] font-semibold mb-2">Highest Correlated Pairs</p>
+                  <p className="text-[10px] uppercase tracking-wide text-[#8a96a8] font-semibold mb-2">Highest Correlated</p>
                   <div className="flex flex-col gap-1.5">
-                    {[
-                      { a: 'MSFT', b: 'GOOGL', r: 0.71, note: 'Both mega-cap tech' },
-                      { a: 'TMO',  b: 'DHR',   r: 0.62, note: 'Life sciences peers' },
-                      { a: 'JNJ',  b: 'TMO',   r: 0.58, note: 'Healthcare overlap' },
-                    ].map(p => (
+                    {HIGHEST_PAIRS.map(p => (
                       <div key={`${p.a}-${p.b}`} className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-sm shrink-0" style={{ background: corrColor(p.r) }} />
-                        <span className="font-mono text-[11px] font-bold text-[#202e4a] w-20 shrink-0">{p.a} · {p.b}</span>
-                        <span className="font-mono text-[11px] text-[#007cba]">{p.r.toFixed(2)}</span>
-                        <span className="text-[10px] text-[#8a96a8]">{p.note}</span>
+                        <span className="font-mono text-[11px] font-bold text-[#202e4a] w-[72px] shrink-0">{p.a} · {p.b}</span>
+                        <span className="font-mono text-[11px] text-red-600">{p.r.toFixed(2)}</span>
+                        <span className="text-[10px] text-[#8a96a8]">{PAIR_NOTES[`${p.a}·${p.b}`] ?? ''}</span>
                       </div>
                     ))}
                   </div>
                 </div>
+              </div>
 
+              {/* Column 3: Lowest pairs + integration note */}
+              <div className="flex flex-col gap-4 min-w-[180px]">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-[#8a96a8] font-semibold mb-2">Lowest Correlated</p>
+                  <div className="flex flex-col gap-1.5">
+                    {LOWEST_PAIRS.map(p => (
+                      <div key={`${p.a}-${p.b}`} className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-sm shrink-0" style={{ background: corrColor(p.r) }} />
+                        <span className="font-mono text-[11px] font-bold text-[#202e4a] w-[72px] shrink-0">{p.a} · {p.b}</span>
+                        <span className="font-mono text-[11px] text-[#007cba]">{p.r.toFixed(2)}</span>
+                        <span className="text-[10px] text-[#8a96a8]">{PAIR_NOTES[`${p.a}·${p.b}`] ?? ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 <div className="rounded border border-dashed border-[#d4d1c9] bg-[#f8f7f3] px-3 py-2.5">
                   <p className="text-[10px] font-medium text-[#8a96a8] mb-1">Integration point</p>
                   <p className="text-[10px] text-[#a8a49e] leading-relaxed">
-                    Live values require a 1-year daily return series per holding from a market data feed. Connect to returns API to auto-populate this matrix.
+                    Live values require a 1-year daily return series per holding. Connect to returns API to auto-populate.
                   </p>
                 </div>
-
-                <p className="text-[9px] text-[#a8a49e] font-mono italic">
-                  Values shown are static placeholders — not real correlations
-                </p>
+                <p className="text-[9px] text-[#a8a49e] font-mono italic">Static placeholders — not real correlations</p>
               </div>
+
             </div>
           </div>
         </section>

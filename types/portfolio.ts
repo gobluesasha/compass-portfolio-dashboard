@@ -51,6 +51,7 @@ export interface Valuation {
   priceToBook: number | null;
   dividendYield: number | null;
   dividendRate: number | null;       // annual dividend $ per share
+  peg: number | null;
 }
 
 export interface RiskMetrics {
@@ -69,12 +70,18 @@ export interface AnalystData {
   numberOfAnalysts: number | null;
 }
 
+export interface LeadershipOfficer {
+  name: string;
+  title: string;
+}
+
 export interface QualitativeData {
   thesis: string | null;
   whatNeedsToGoRight: string | null;
   sellCriteria: string | null;
   catalysts: string | null;
   businessSummary: string | null;
+  leadership: LeadershipOfficer[] | null;
 }
 
 export interface PriceHistory {

@@ -18,6 +18,7 @@ export type FundamentalsItem = {
   priceToBook: number | null;
   dividendYield: number | null;
   dividendRate: number | null;
+  pegRatio: number | null;
   // Risk
   beta: number | null;
   debtToEquity: number | null;
@@ -29,6 +30,7 @@ export type FundamentalsItem = {
   sector: string | null;
   industry: string | null;
   businessSummary: string | null;
+  officers: { name: string; title: string }[] | null;
   error?: boolean;
 };
 
@@ -48,10 +50,10 @@ async function fetchOne(symbol: string): Promise<FundamentalsItem> {
     symbol, revenueGrowthPct: null, epsGrowthPct: null,
     grossMarginPct: null, returnOnEquity: null,
     pe: null, forwardPe: null, evEbitda: null,
-    priceToSales: null, priceToBook: null, dividendYield: null, dividendRate: null,
+    priceToSales: null, priceToBook: null, dividendYield: null, dividendRate: null, pegRatio: null,
     beta: null, debtToEquity: null,
     consensusRating: null, targetPrice: null, numberOfAnalysts: null,
-    sector: null, industry: null, businessSummary: null,
+    sector: null, industry: null, businessSummary: null, officers: null,
   };
 
   if (ETF_SET.has(symbol)) {
@@ -84,6 +86,7 @@ async function fetchOne(symbol: string): Promise<FundamentalsItem> {
       priceToBook:        ks.priceToBook                        ?? null,
       dividendYield:      sd.dividendYield                      ?? null,
       dividendRate:       sd.dividendRate                       ?? null,
+      pegRatio:           ks.trailingPegRatio ?? ks.pegRatio    ?? null,
       beta:               sd.beta                               ?? null,
       debtToEquity:       fd.debtToEquity                       ?? null,
       // Analyst consensus
@@ -93,6 +96,12 @@ async function fetchOne(symbol: string): Promise<FundamentalsItem> {
       sector:             ap.sector                             ?? null,
       industry:           ap.industry                           ?? null,
       businessSummary:    ap.longBusinessSummary                ?? null,
+      officers: Array.isArray(ap.companyOfficers)
+        ? ap.companyOfficers.slice(0, 5).map((o: any) => ({
+            name:  String(o.name  ?? ''),
+            title: String(o.title ?? ''),
+          }))
+        : null,
     };
 
     cache.set(symbol, { item, expires: Date.now() + TTL });

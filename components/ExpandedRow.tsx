@@ -306,6 +306,25 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
               </div>
             )}
 
+            {/* Leadership Team */}
+            <div>
+              <SectionHeader title="Leadership Team" />
+              {qualitative.leadership && qualitative.leadership.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {qualitative.leadership.slice(0, 5).map((o, i) => (
+                    <div key={i} className="flex items-baseline gap-2 min-w-0">
+                      <span className="text-[10px] text-[#8a96a8] w-28 shrink-0 leading-tight truncate" title={o.title}>{o.title}</span>
+                      <span className="text-[11px] font-semibold text-[#202e4a] leading-tight truncate">{o.name}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded border border-dashed border-[#c8c4bc] bg-white px-3 py-2 flex items-center justify-center">
+                  <span className="text-[10px] text-[#8a96a8] animate-pulse">Loading officer data…</span>
+                </div>
+              )}
+            </div>
+
             {/* Price chart (real sparkline or placeholder) */}
             <div>
               <SectionHeader title="Price Chart · 90 Days" />
@@ -387,9 +406,12 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
               <div className="grid grid-cols-2 gap-3">
                 <StatCell label="P/E (TTM)" value={fmtMult(valuation.pe)} />
                 <StatCell label="Fwd P/E" value={fmtMult(valuation.forwardPe)} />
+                <StatCell label="P/B" value={fmtMult(valuation.priceToBook)} />
+                <StatCell label="PEG Ratio" value={fmtMult(valuation.peg, 2)} />
                 <StatCell label="EV / EBITDA" value={fmtMult(valuation.evEbitda)} />
                 <StatCell label="Price / Sales" value={fmtMult(valuation.priceToSales)} />
-                <StatCell label="Price / Book" value={fmtMult(valuation.priceToBook)} />
+                <StatCell label="ROE" value={fmtPct(fundamentals.returnOnEquity, 1, true)} />
+                <StatCell label="D/E Ratio" value={risk.debtToEquity !== null ? risk.debtToEquity.toFixed(2) : null} />
                 <StatCell label="Div. Yield" value={valuation.dividendYield !== null ? `${(valuation.dividendYield * 100).toFixed(2)}%` : null} />
               </div>
             </div>

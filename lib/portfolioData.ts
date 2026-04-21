@@ -163,7 +163,7 @@ const nullFundamentals = (): Fundamentals => ({
 
 const nullValuation = (): Valuation => ({
   pe: null, forwardPe: null, evEbitda: null,
-  priceToSales: null, priceToBook: null, dividendYield: null, dividendRate: null,
+  priceToSales: null, priceToBook: null, dividendYield: null, dividendRate: null, peg: null,
 });
 
 const nullRisk = (): RiskMetrics => ({
@@ -177,7 +177,7 @@ const nullAnalyst = (): AnalystData => ({
 
 const nullQualitative = (): QualitativeData => ({
   thesis: null, whatNeedsToGoRight: null,
-  sellCriteria: null, catalysts: null, businessSummary: null,
+  sellCriteria: null, catalysts: null, businessSummary: null, leadership: null,
 });
 
 const nullPriceHistory = (): PriceHistory => ({

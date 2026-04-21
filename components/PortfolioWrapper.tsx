@@ -24,6 +24,7 @@ type EarningsItem = {
   symbol: string;
   result: 'beat' | 'miss' | 'inline' | null;
   date: string | null;
+  nextEarningsDate: string | null;
 };
 
 type FundamentalsItem = {
@@ -39,6 +40,7 @@ type FundamentalsItem = {
   priceToBook: number | null;
   dividendYield: number | null;
   dividendRate: number | null;
+  pegRatio: number | null;
   beta: number | null;
   debtToEquity: number | null;
   consensusRating: number | null;
@@ -47,6 +49,7 @@ type FundamentalsItem = {
   sector: string | null;
   industry: string | null;
   businessSummary: string | null;
+  officers: { name: string; title: string }[] | null;
 };
 
 type ReturnsItem = {
@@ -97,8 +100,9 @@ function mergePositions(
       },
       earnings: {
         ...p.earnings,
-        lastEarnings:    e?.result ?? p.earnings.lastEarnings,
-        lastEarningsDate: e?.date  ?? p.earnings.lastEarningsDate,
+        lastEarnings:     e?.result           ?? p.earnings.lastEarnings,
+        lastEarningsDate: e?.date             ?? p.earnings.lastEarningsDate,
+        nextEarningsDate: e?.nextEarningsDate ?? p.earnings.nextEarningsDate,
       },
       fundamentals: f ? {
         revenueGrowthPct: f.revenueGrowthPct,
@@ -107,13 +111,14 @@ function mergePositions(
         returnOnEquity:   f.returnOnEquity,
       } : p.fundamentals,
       valuation: {
-        pe:           f?.pe          ?? p.valuation.pe,
-        forwardPe:    f?.forwardPe   ?? p.valuation.forwardPe,
-        evEbitda:     f?.evEbitda    ?? p.valuation.evEbitda,
+        pe:           f?.pe           ?? p.valuation.pe,
+        forwardPe:    f?.forwardPe    ?? p.valuation.forwardPe,
+        evEbitda:     f?.evEbitda     ?? p.valuation.evEbitda,
         priceToSales: f?.priceToSales ?? p.valuation.priceToSales,
         priceToBook:  f?.priceToBook  ?? p.valuation.priceToBook,
         dividendYield: f?.dividendYield ?? q?.dividendYield ?? p.valuation.dividendYield,
         dividendRate:  f?.dividendRate  ?? q?.dividendRate  ?? p.valuation.dividendRate,
+        peg:          f?.pegRatio     ?? p.valuation.peg,
       },
       risk: {
         beta:           f?.beta          ?? p.risk.beta,
@@ -132,6 +137,7 @@ function mergePositions(
       qualitative: f ? {
         ...p.qualitative,
         businessSummary: f.businessSummary,
+        leadership: f.officers ?? p.qualitative.leadership,
       } : p.qualitative,
     };
   });
