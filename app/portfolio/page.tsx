@@ -48,7 +48,7 @@ export default async function PortfolioPage({ searchParams }: PageProps) {
         <div className="flex flex-wrap gap-3">
           <StatCard label="Total AUM" value={`$${totalAUM}M`} sub="13-F reported value" accent />
           <StatCard label="Positions" value={String(PORTFOLIO_STATS.totalPositions)} sub="Unique holdings" />
-          <StatCard label="Top 10 Conc." value={`${(PORTFOLIO_STATS.top10Weight * 100).toFixed(1)}%`} sub="% of portfolio" />
+          <StatCard label="Top 10 Concentration" value={`${(PORTFOLIO_STATS.top10Weight * 100).toFixed(1)}%`} sub="% of AUM in 10 largest positions" />
           <SignalBar
             green={PORTFOLIO_STATS.greenCount}
             yellow={PORTFOLIO_STATS.yellowCount}

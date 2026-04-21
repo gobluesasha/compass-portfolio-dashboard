@@ -314,7 +314,14 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
                   {qualitative.leadership.slice(0, 5).map((o, i) => (
                     <div key={i} className="flex items-baseline gap-2 min-w-0">
                       <span className="text-[10px] text-[#8a96a8] w-28 shrink-0 leading-tight truncate" title={o.title}>{o.title}</span>
-                      <span className="text-[11px] font-semibold text-[#202e4a] leading-tight truncate">{o.name}</span>
+                      <a
+                        href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(o.name + ' ' + position.issuerName)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="text-[11px] font-semibold text-[#007cba] hover:underline leading-tight truncate"
+                        title={`Search LinkedIn for ${o.name}`}
+                      >{o.name}</a>
                     </div>
                   ))}
                 </div>

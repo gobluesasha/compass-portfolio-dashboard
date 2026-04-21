@@ -17,28 +17,6 @@ type LiveQuote = {
   dividendYield: number | null; dividendRate: number | null;
 };
 
-// ── Correlation heatmap data (top 10 by weight) ──────────────
-const TOP10 = ['APH','MSFT','GOOGL','MRK','WMT','TMO','JNJ','EXPD','V','DHR'];
-const CORR: number[][] = [
-  [1.00,0.52,0.44,0.28,0.18,0.31,0.24,0.35,0.38,0.27],
-  [0.52,1.00,0.71,0.22,0.25,0.28,0.20,0.31,0.48,0.24],
-  [0.44,0.71,1.00,0.19,0.21,0.24,0.18,0.28,0.45,0.22],
-  [0.28,0.22,0.19,1.00,0.31,0.51,0.55,0.22,0.26,0.48],
-  [0.18,0.25,0.21,0.31,1.00,0.29,0.32,0.25,0.35,0.28],
-  [0.31,0.28,0.24,0.51,0.29,1.00,0.58,0.31,0.29,0.62],
-  [0.24,0.20,0.18,0.55,0.32,0.58,1.00,0.24,0.27,0.54],
-  [0.35,0.31,0.28,0.22,0.25,0.31,0.24,1.00,0.34,0.26],
-  [0.38,0.48,0.45,0.26,0.35,0.29,0.27,0.34,1.00,0.31],
-  [0.27,0.24,0.22,0.48,0.28,0.62,0.54,0.26,0.31,1.00],
-];
-
-function corrColor(r: number): string {
-  const t = Math.max(-1, Math.min(1, r));
-  const [pr, pg, pb] = t >= 0 ? [183, 28, 28] : [13, 71, 161];
-  const a = Math.abs(t);
-  return `rgb(${Math.round(255+(pr-255)*a)},${Math.round(255+(pg-255)*a)},${Math.round(255+(pb-255)*a)})`;
-}
-
 // ── Helpers ──────────────────────────────────────────────────
 function fmt(value: number | null, format: string): string {
   if (value === null) return '—';
@@ -112,30 +90,6 @@ function SectionDivider({ title, right }: { title: string; right?: React.ReactNo
     </div>
   );
 }
-
-// ── Average pairwise correlation + sorted pairs ───────────────
-const n = TOP10.length;
-let corrSum = 0;
-const ALL_PAIRS: { a: string; b: string; r: number }[] = [];
-for (let i = 0; i < n; i++) {
-  for (let j = i + 1; j < n; j++) {
-    corrSum += CORR[i][j];
-    ALL_PAIRS.push({ a: TOP10[i], b: TOP10[j], r: CORR[i][j] });
-  }
-}
-ALL_PAIRS.sort((x, y) => y.r - x.r);
-const AVG_CORR      = corrSum / (n * (n - 1) / 2);
-const HIGHEST_PAIRS = ALL_PAIRS.slice(0, 3);
-const LOWEST_PAIRS  = ALL_PAIRS.slice(-3).reverse();
-
-const PAIR_NOTES: Record<string, string> = {
-  'MSFT·GOOGL': 'Mega-cap tech', 'GOOGL·MSFT': 'Mega-cap tech',
-  'TMO·DHR':    'Life sciences peers', 'DHR·TMO': 'Life sciences peers',
-  'JNJ·TMO':    'Healthcare overlap', 'TMO·JNJ': 'Healthcare overlap',
-  'APH·WMT':    'Industrials vs. Consumer', 'WMT·APH': 'Industrials vs. Consumer',
-  'GOOGL·JNJ':  'Tech vs. Healthcare', 'JNJ·GOOGL': 'Tech vs. Healthcare',
-  'GOOGL·MRK':  'Tech vs. Pharma', 'MRK·GOOGL': 'Tech vs. Pharma',
-};
 
 export default function OverviewPage() {
   const [benchmarks, setBenchmarks] = useState<BenchmarkItem[] | null>(null);
@@ -263,9 +217,9 @@ export default function OverviewPage() {
               <p className="text-[10px] text-[#8a96a8] mt-0.5">25 core · {PORTFOLIO_STATS.totalPositions - 25} satellite</p>
             </div>
             <div className="bg-white rounded-lg border border-[#e5e3dd] px-5 py-4 shadow-sm">
-              <p className="text-[10px] uppercase tracking-widest text-[#8a96a8] font-semibold">Top 10 Conc.</p>
+              <p className="text-[10px] uppercase tracking-widest text-[#8a96a8] font-semibold">Top 10 Concentration</p>
               <p className="text-2xl font-mono font-bold text-[#202e4a] mt-1">{(PORTFOLIO_STATS.top10Weight * 100).toFixed(1)}%</p>
-              <p className="text-[10px] text-[#8a96a8] mt-0.5">of portfolio weight</p>
+              <p className="text-[10px] text-[#8a96a8] mt-0.5">% of AUM in the 10 largest positions</p>
             </div>
           </div>
 
@@ -357,115 +311,6 @@ export default function OverviewPage() {
                   <p className="text-xs text-[#4a5e78]">Q4 2025 · Feb 14, 2026</p>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Top Holdings Correlation — matrix left, summary right */}
-        <section className="flex flex-col gap-3">
-          <SectionDivider title="Top Holdings Correlation" />
-          <div className="bg-white rounded-lg border border-[#e5e3dd] shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-[#eeece7] flex flex-wrap items-center justify-between gap-2">
-              <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#8a96a8]">Top 10 Positions — Pairwise Correlation Matrix</span>
-              <span className="text-[9px] text-[#a8a49e] font-mono italic">Integration point: requires 1-year daily return series from market data feed</span>
-            </div>
-            <div className="p-5 flex gap-8 items-start flex-wrap">
-
-              {/* Column 1: Matrix */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[10px] text-[#8a96a8] font-mono">−1</span>
-                  <div className="flex h-2.5 rounded overflow-hidden" style={{ width: 100 }}>
-                    {Array.from({ length: 20 }).map((_, i) => (
-                      <div key={i} style={{ flex: 1, background: corrColor(-1 + (i / 19) * 2) }} />
-                    ))}
-                  </div>
-                  <span className="text-[10px] text-[#8a96a8] font-mono">+1</span>
-                </div>
-                <table style={{ borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ width: 44 }} />
-                      {TOP10.map(s => (
-                        <th key={s} style={{ width: 46, textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#4a5e78', paddingBottom: 4, fontFamily: 'monospace' }}>{s}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {TOP10.map((rowSym, i) => (
-                      <tr key={rowSym}>
-                        <td style={{ fontSize: 9, fontWeight: 700, color: '#4a5e78', paddingRight: 6, textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{rowSym}</td>
-                        {TOP10.map((_, j) => {
-                          const r = CORR[i][j];
-                          const isDiag = i === j;
-                          return (
-                            <td key={j} style={{
-                              width: 46, height: 30, textAlign: 'center',
-                              background: corrColor(r), fontSize: 9, fontWeight: 600,
-                              color: Math.abs(r) > 0.55 || isDiag ? '#fff' : '#202e4a',
-                              border: '1px solid rgba(255,255,255,0.4)',
-                            }}>
-                              {isDiag ? '—' : r.toFixed(2)}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Column 2: Avg corr stat + Highest pairs */}
-              <div className="flex flex-col gap-4 min-w-[180px]">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-[#8a96a8] font-semibold mb-1">Avg Pairwise Correlation</p>
-                  <p className={`text-3xl font-mono font-bold ${AVG_CORR > 0.6 ? 'text-red-600' : 'text-[#202e4a]'}`}>
-                    {AVG_CORR.toFixed(2)}
-                  </p>
-                  <div className={`mt-1.5 flex items-center gap-1.5 text-xs ${AVG_CORR > 0.6 ? 'text-red-600' : 'text-emerald-600'}`}>
-                    <span>{AVG_CORR > 0.6 ? '⚠' : '✓'}</span>
-                    <span>{AVG_CORR > 0.6 ? 'High concentration risk' : 'Within diversification guidelines'}</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-[#8a96a8] font-semibold mb-2">Highest Correlated</p>
-                  <div className="flex flex-col gap-1.5">
-                    {HIGHEST_PAIRS.map(p => (
-                      <div key={`${p.a}-${p.b}`} className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-sm shrink-0" style={{ background: corrColor(p.r) }} />
-                        <span className="font-mono text-[11px] font-bold text-[#202e4a] w-[72px] shrink-0">{p.a} · {p.b}</span>
-                        <span className="font-mono text-[11px] text-red-600">{p.r.toFixed(2)}</span>
-                        <span className="text-[10px] text-[#8a96a8]">{PAIR_NOTES[`${p.a}·${p.b}`] ?? ''}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Column 3: Lowest pairs + integration note */}
-              <div className="flex flex-col gap-4 min-w-[180px]">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-[#8a96a8] font-semibold mb-2">Lowest Correlated</p>
-                  <div className="flex flex-col gap-1.5">
-                    {LOWEST_PAIRS.map(p => (
-                      <div key={`${p.a}-${p.b}`} className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-sm shrink-0" style={{ background: corrColor(p.r) }} />
-                        <span className="font-mono text-[11px] font-bold text-[#202e4a] w-[72px] shrink-0">{p.a} · {p.b}</span>
-                        <span className="font-mono text-[11px] text-[#007cba]">{p.r.toFixed(2)}</span>
-                        <span className="text-[10px] text-[#8a96a8]">{PAIR_NOTES[`${p.a}·${p.b}`] ?? ''}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="rounded border border-dashed border-[#d4d1c9] bg-[#f8f7f3] px-3 py-2.5">
-                  <p className="text-[10px] font-medium text-[#8a96a8] mb-1">Integration point</p>
-                  <p className="text-[10px] text-[#a8a49e] leading-relaxed">
-                    Live values require a 1-year daily return series per holding. Connect to returns API to auto-populate.
-                  </p>
-                </div>
-                <p className="text-[9px] text-[#a8a49e] font-mono italic">Static placeholders — not real correlations</p>
-              </div>
-
             </div>
           </div>
         </section>
