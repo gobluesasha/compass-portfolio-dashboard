@@ -36,11 +36,16 @@ type FundamentalsItem = {
   pe: number | null;
   forwardPe: number | null;
   evEbitda: number | null;
+  evRevenue: number | null;
   priceToSales: number | null;
   priceToBook: number | null;
   dividendYield: number | null;
   dividendRate: number | null;
   pegRatio: number | null;
+  marketCap: number | null;
+  enterpriseValue: number | null;
+  totalRevenue: number | null;
+  ebitda: number | null;
   beta: number | null;
   debtToEquity: number | null;
   consensusRating: number | null;
@@ -111,14 +116,19 @@ function mergePositions(
         returnOnEquity:   f.returnOnEquity,
       } : p.fundamentals,
       valuation: {
-        pe:           f?.pe           ?? p.valuation.pe,
-        forwardPe:    f?.forwardPe    ?? p.valuation.forwardPe,
-        evEbitda:     f?.evEbitda     ?? p.valuation.evEbitda,
-        priceToSales: f?.priceToSales ?? p.valuation.priceToSales,
-        priceToBook:  f?.priceToBook  ?? p.valuation.priceToBook,
-        dividendYield: f?.dividendYield ?? q?.dividendYield ?? p.valuation.dividendYield,
-        dividendRate:  f?.dividendRate  ?? q?.dividendRate  ?? p.valuation.dividendRate,
-        peg:          f?.pegRatio     ?? p.valuation.peg,
+        pe:              f?.pe              ?? p.valuation.pe,
+        forwardPe:       f?.forwardPe       ?? p.valuation.forwardPe,
+        evEbitda:        f?.evEbitda        ?? p.valuation.evEbitda,
+        evRevenue:       f?.evRevenue       ?? p.valuation.evRevenue,
+        priceToSales:    f?.priceToSales    ?? p.valuation.priceToSales,
+        priceToBook:     f?.priceToBook     ?? p.valuation.priceToBook,
+        dividendYield:   f?.dividendYield   ?? q?.dividendYield ?? p.valuation.dividendYield,
+        dividendRate:    f?.dividendRate    ?? q?.dividendRate  ?? p.valuation.dividendRate,
+        peg:             f?.pegRatio        ?? p.valuation.peg,
+        marketCap:       f?.marketCap       ?? p.valuation.marketCap,
+        enterpriseValue: f?.enterpriseValue ?? p.valuation.enterpriseValue,
+        totalRevenue:    f?.totalRevenue    ?? p.valuation.totalRevenue,
+        ebitda:          f?.ebitda          ?? p.valuation.ebitda,
       },
       risk: {
         beta:           f?.beta          ?? p.risk.beta,

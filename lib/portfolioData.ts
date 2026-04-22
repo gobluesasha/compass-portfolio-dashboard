@@ -162,8 +162,9 @@ const nullFundamentals = (): Fundamentals => ({
 });
 
 const nullValuation = (): Valuation => ({
-  pe: null, forwardPe: null, evEbitda: null,
+  pe: null, forwardPe: null, evEbitda: null, evRevenue: null,
   priceToSales: null, priceToBook: null, dividendYield: null, dividendRate: null, peg: null,
+  marketCap: null, enterpriseValue: null, totalRevenue: null, ebitda: null,
 });
 
 const nullRisk = (): RiskMetrics => ({

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { Position } from '../types/portfolio';
 import { DataTimestamps } from './PortfolioWrapper';
 
@@ -219,6 +219,13 @@ function ThesisStatus() {
   );
 }
 
+type PeerItem = {
+  sym: string;
+  name: string;
+  price: number | null;
+  changePct: number | null;
+};
+
 function fmtPct(v: number | null, decimals = 1, isRatio = false): string | null {
   if (v === null) return null;
   const val = isRatio ? v * 100 : v;
@@ -229,10 +236,34 @@ function fmtMult(v: number | null, decimals = 1): string | null {
   return v !== null ? `${v.toFixed(decimals)}×` : null;
 }
 
+function fmtB(v: number | null): string | null {
+  if (v === null) return null;
+  const abs = Math.abs(v);
+  if (abs >= 1e12) return `$${(v / 1e12).toFixed(2)}T`;
+  if (abs >= 1e9)  return `$${(v / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6)  return `$${(v / 1e6).toFixed(1)}M`;
+  return `$${v.toLocaleString()}`;
+}
+
 export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [peers, setPeers] = useState<PeerItem[] | null>(null);
+  const [peersLoading, setPeersLoading] = useState(false);
+
+  const loadPeers = useCallback(() => {
+    if (peers !== null) return; // already loaded
+    setPeersLoading(true);
+    fetch(`/api/peers?sym=${position.sym}`)
+      .then(r => r.json())
+      .then(j => { setPeers(j.data ?? []); setPeersLoading(false); })
+      .catch(() => { setPeers([]); setPeersLoading(false); });
+  }, [position.sym, peers]);
+
+  useEffect(() => {
+    if (isOpen) loadPeers();
+  }, [isOpen, loadPeers]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -244,7 +275,7 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
       setHeight(0);
       setBioExpanded(false);
     }
-  }, [isOpen, position]);
+  }, [isOpen, position, peers]);
 
   const { fundamentals, valuation, risk, analyst, qualitative, priceHistory, market, earnings, sector, industry, delta } = position;
 
@@ -392,6 +423,17 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
               />
             </div>
 
+            {/* Company Financials */}
+            <div className="md:col-span-2">
+              <SectionHeader title="Company Financials" />
+              <div className="grid grid-cols-4 gap-3">
+                <StatCell label="Market Cap"    value={fmtB(valuation.marketCap)} />
+                <StatCell label="Enterprise Val" value={fmtB(valuation.enterpriseValue)} />
+                <StatCell label="Total Revenue" value={fmtB(valuation.totalRevenue)} />
+                <StatCell label="EBITDA"         value={fmtB(valuation.ebitda)} />
+              </div>
+            </div>
+
             {/* Fundamentals */}
             <div>
               <SectionHeader title="Fundamentals" />
@@ -409,13 +451,14 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
 
             {/* Valuation */}
             <div>
-              <SectionHeader title="Valuation" />
+              <SectionHeader title="Valuation Multiples" />
               <div className="grid grid-cols-2 gap-3">
                 <StatCell label="P/E (TTM)" value={fmtMult(valuation.pe)} />
                 <StatCell label="Fwd P/E" value={fmtMult(valuation.forwardPe)} />
                 <StatCell label="P/B" value={fmtMult(valuation.priceToBook)} />
                 <StatCell label="PEG Ratio" value={fmtMult(valuation.peg, 2)} />
                 <StatCell label="EV / EBITDA" value={fmtMult(valuation.evEbitda)} />
+                <StatCell label="EV / Revenue" value={fmtMult(valuation.evRevenue)} />
                 <StatCell label="Price / Sales" value={fmtMult(valuation.priceToSales)} />
                 <StatCell label="ROE" value={fmtPct(fundamentals.returnOnEquity, 1, true)} />
                 <StatCell label="D/E Ratio" value={risk.debtToEquity !== null ? risk.debtToEquity.toFixed(2) : null} />
@@ -433,6 +476,36 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
                   valueClass={risk.maxDrawdownPct !== null ? 'text-red-600' : ''} />
                 <StatCell label="Volatility" value={risk.volatilityPct !== null ? `${risk.volatilityPct.toFixed(1)}%` : null} />
               </div>
+            </div>
+
+            {/* Comparable Companies */}
+            <div className="md:col-span-2">
+              <SectionHeader title="Comparable Companies" />
+              {peersLoading ? (
+                <p className="text-[10px] text-[#8a96a8] animate-pulse">Loading peers…</p>
+              ) : peers && peers.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {peers.map(p => (
+                    <div key={p.sym} className="flex items-center gap-3">
+                      <a
+                        href={`https://finance.yahoo.com/quote/${p.sym}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="font-mono text-xs font-bold text-[#007cba] hover:underline w-14 shrink-0"
+                      >{p.sym}</a>
+                      <span className="text-xs text-[#4a5e78] flex-1 truncate">{p.name}</span>
+                      {p.changePct !== null && (
+                        <span className={`font-mono text-xs font-semibold shrink-0 ${p.changePct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {p.changePct >= 0 ? '+' : ''}{p.changePct.toFixed(2)}%
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : peers !== null ? (
+                <p className="text-[10px] text-[#a8a49e] italic">No comparable companies found</p>
+              ) : null}
             </div>
 
             {/* Investment Notes — compact thesis framework */}

@@ -47,11 +47,16 @@ export interface Valuation {
   pe: number | null;
   forwardPe: number | null;
   evEbitda: number | null;
+  evRevenue: number | null;
   priceToSales: number | null;
   priceToBook: number | null;
   dividendYield: number | null;
   dividendRate: number | null;       // annual dividend $ per share
   peg: number | null;
+  marketCap: number | null;          // raw $
+  enterpriseValue: number | null;    // raw $
+  totalRevenue: number | null;       // raw $
+  ebitda: number | null;             // raw $
 }
 
 export interface RiskMetrics {

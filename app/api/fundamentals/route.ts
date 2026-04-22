@@ -10,15 +10,21 @@ export type FundamentalsItem = {
   epsGrowthPct: number | null;
   grossMarginPct: number | null;
   returnOnEquity: number | null;
-  // Valuation
+  // Valuation multiples
   pe: number | null;
   forwardPe: number | null;
   evEbitda: number | null;
+  evRevenue: number | null;
   priceToSales: number | null;
   priceToBook: number | null;
   dividendYield: number | null;
   dividendRate: number | null;
   pegRatio: number | null;
+  // Absolute financials
+  marketCap: number | null;
+  enterpriseValue: number | null;
+  totalRevenue: number | null;
+  ebitda: number | null;
   // Risk
   beta: number | null;
   debtToEquity: number | null;
@@ -49,8 +55,9 @@ async function fetchOne(symbol: string): Promise<FundamentalsItem> {
   const empty: FundamentalsItem = {
     symbol, revenueGrowthPct: null, epsGrowthPct: null,
     grossMarginPct: null, returnOnEquity: null,
-    pe: null, forwardPe: null, evEbitda: null,
+    pe: null, forwardPe: null, evEbitda: null, evRevenue: null,
     priceToSales: null, priceToBook: null, dividendYield: null, dividendRate: null, pegRatio: null,
+    marketCap: null, enterpriseValue: null, totalRevenue: null, ebitda: null,
     beta: null, debtToEquity: null,
     consensusRating: null, targetPrice: null, numberOfAnalysts: null,
     sector: null, industry: null, businessSummary: null, officers: null,
@@ -82,11 +89,16 @@ async function fetchOne(symbol: string): Promise<FundamentalsItem> {
       pe:                 sd.trailingPE                         ?? null,
       forwardPe:          sd.forwardPE                          ?? null,
       evEbitda:           ks.enterpriseToEbitda                 ?? null,
+      evRevenue:          ks.enterpriseToRevenue                ?? null,
       priceToSales:       ks.priceToSalesTrailing12Months       ?? null,
       priceToBook:        ks.priceToBook                        ?? null,
       dividendYield:      sd.dividendYield                      ?? null,
       dividendRate:       sd.dividendRate                       ?? null,
       pegRatio:           ks.trailingPegRatio ?? ks.pegRatio    ?? null,
+      marketCap:          sd.marketCap        ?? ks.marketCap   ?? null,
+      enterpriseValue:    ks.enterpriseValue                    ?? null,
+      totalRevenue:       fd.totalRevenue                       ?? null,
+      ebitda:             fd.ebitda                             ?? null,
       beta:               sd.beta                               ?? null,
       debtToEquity:       fd.debtToEquity                       ?? null,
       // Analyst consensus

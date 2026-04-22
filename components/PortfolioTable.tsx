@@ -11,7 +11,13 @@ type SortKey =
   | 'weight'
   | 'valueK'
   | 'shares'
-  | 'status';
+  | 'status'
+  | 'costPrice'
+  | 'returnVsCost';
+
+type SignalFilter  = 'all' | 'green' | 'yellow' | 'red';
+type DeltaFilter   = 'all' | 'new' | 'increased' | 'decreased';
+type EarningsFilter = 'all' | 'beat' | 'miss' | 'inline';
 
 interface Props {
   positions: Position[];
@@ -121,6 +127,10 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
   const [sortKey, setSortKey] = useState<SortKey>('valueK');
   const [sortAsc, setSortAsc] = useState(false);
   const [showOthers, setShowOthers] = useState(false);
+  const [search, setSearch] = useState('');
+  const [signalFilter, setSignalFilter] = useState<SignalFilter>('all');
+  const [deltaFilter, setDeltaFilter] = useState<DeltaFilter>('all');
+  const [earningsFilter, setEarningsFilter] = useState<EarningsFilter>('all');
 
   // Auto-expand and scroll to focusSym
   useEffect(() => {
@@ -138,6 +148,12 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
     else { setSortKey(key); setSortAsc(false); }
   }, [sortKey]);
 
+  const costPrice = (p: Position) => (p.shares > 0 ? (p.valueK * 1000) / p.shares : 0);
+  const returnVsCost = (p: Position) => {
+    const cp = costPrice(p);
+    return cp > 0 && p.market.price !== null ? (p.market.price - cp) / cp : null;
+  };
+
   const sorted = [...positions].sort((a, b) => {
     let av: string | number;
     let bv: string | number;
@@ -147,6 +163,8 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
       case 'weight':     av = a.weight;     bv = b.weight;     break;
       case 'valueK':     av = a.valueK;     bv = b.valueK;     break;
       case 'shares':     av = a.shares;     bv = b.shares;     break;
+      case 'costPrice':  av = costPrice(a); bv = costPrice(b); break;
+      case 'returnVsCost': av = returnVsCost(a) ?? -Infinity; bv = returnVsCost(b) ?? -Infinity; break;
       case 'status': {
         const order: Record<PositionStatus, number> = { green: 0, yellow: 1, red: 2 };
         av = order[a.status]; bv = order[b.status]; break;
@@ -158,8 +176,21 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
     return 0;
   });
 
-  const corePositions  = sorted.filter(p => p.weight >= CORE_THRESHOLD);
-  const otherPositions = sorted.filter(p => p.weight <  CORE_THRESHOLD);
+  const q = search.toLowerCase().trim();
+  const filtered = sorted.filter(p => {
+    if (q && !p.sym.toLowerCase().includes(q) && !p.issuerName.toLowerCase().includes(q)) return false;
+    if (signalFilter !== 'all' && p.status !== signalFilter) return false;
+    if (deltaFilter !== 'all') {
+      if (!p.delta || p.delta.direction !== deltaFilter) return false;
+    }
+    if (earningsFilter !== 'all' && p.earnings.lastEarnings !== earningsFilter) return false;
+    return true;
+  });
+
+  const hasFilters = q || signalFilter !== 'all' || deltaFilter !== 'all' || earningsFilter !== 'all';
+
+  const corePositions  = filtered.filter(p => p.weight >= CORE_THRESHOLD);
+  const otherPositions = filtered.filter(p => p.weight <  CORE_THRESHOLD);
 
   const renderRow = (pos: Position, idx: number) => {
     const isExpanded = expandedSym === pos.sym;
@@ -197,11 +228,27 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
           <td className="px-3 py-2.5 text-right">
             <span className="font-mono text-xs text-[#4a5e78]">{pos.shares.toLocaleString()}</span>
           </td>
-          {/* Price */}
+          {/* Cost (13-F derived) */}
+          <td className="px-3 py-2.5 text-right">
+            <span className="font-mono text-xs text-[#8a96a8]">${costPrice(pos).toFixed(2)}</span>
+          </td>
+          {/* Live Price */}
           <td className="px-3 py-2.5 text-right">
             {pos.market.price !== null ? (
               <span className="font-mono text-xs text-[#202e4a]">${pos.market.price.toFixed(2)}</span>
             ) : <Placeholder />}
+          </td>
+          {/* Return vs. cost */}
+          <td className="px-3 py-2.5 text-right">
+            {(() => {
+              const r = returnVsCost(pos);
+              if (r === null) return <Placeholder />;
+              return (
+                <span className={`font-mono text-xs font-semibold ${r >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {r >= 0 ? '+' : ''}{(r * 100).toFixed(1)}%
+                </span>
+              );
+            })()}
           </td>
           {/* Day % */}
           <td className="px-3 py-2.5 text-right">
@@ -227,10 +274,6 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
               </span>
             ) : <Placeholder />}
           </td>
-          {/* Delta */}
-          <td className="px-3 py-2.5">
-            <DeltaBadge delta={pos.delta} />
-          </td>
           {/* Earnings */}
           <td className="px-3 py-2.5">
             <EarningsBadge result={pos.earnings.lastEarnings} />
@@ -242,7 +285,7 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
           </td>
         </tr>
         <tr>
-          <td colSpan={13} className="p-0">
+          <td colSpan={14} className="p-0">
             <ExpandedRow position={pos} isOpen={isExpanded} timestamps={timestamps} />
           </td>
         </tr>
@@ -250,8 +293,94 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
     );
   };
 
+  const ChipGroup = <T extends string>({ label, options, value, onChange }: {
+    label: string;
+    options: { v: T; display: string; className?: string }[];
+    value: T;
+    onChange: (v: T) => void;
+  }) => (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] font-semibold text-[#8a96a8] uppercase tracking-wide shrink-0">{label}</span>
+      <div className="flex gap-1">
+        {options.map(o => (
+          <button
+            key={o.v}
+            onClick={() => onChange(o.v)}
+            className={`px-2 py-1 rounded text-[11px] font-semibold transition-all ${
+              value === o.v
+                ? (o.className ?? 'bg-[#202e4a] text-white')
+                : 'bg-[#f2f1ec] text-[#8a96a8] hover:bg-[#e5e3dd] hover:text-[#4a5e78]'
+            }`}
+          >{o.display}</button>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="rounded-lg border border-[#d4d1c9] overflow-hidden shadow-sm">
+      {/* Filter Bar */}
+      <div className="px-4 py-3 border-b border-[#e5e3dd] bg-[#faf9f6] flex flex-wrap items-center gap-4">
+        {/* Search */}
+        <div className="relative">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8a96a8]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <circle cx="6.5" cy="6.5" r="4.5" /><path d="M10.5 10.5l3 3" strokeLinecap="round" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Ticker or company…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-8 pr-3 py-1.5 rounded border border-[#d4d1c9] bg-white text-[12px] text-[#202e4a] placeholder-[#c8cdd6] focus:outline-none focus:border-[#007cba] w-44 transition-colors"
+          />
+        </div>
+        <div className="w-px h-5 bg-[#d4d1c9]" />
+        <ChipGroup
+          label="Signal"
+          value={signalFilter}
+          onChange={setSignalFilter}
+          options={[
+            { v: 'all' as SignalFilter, display: 'All' },
+            { v: 'green' as SignalFilter, display: 'Conviction', className: 'bg-emerald-600 text-white' },
+            { v: 'yellow' as SignalFilter, display: 'Monitor', className: 'bg-amber-500 text-white' },
+            { v: 'red' as SignalFilter, display: 'Concern', className: 'bg-red-600 text-white' },
+          ]}
+        />
+        <div className="w-px h-5 bg-[#d4d1c9]" />
+        <ChipGroup
+          label="Δ Position"
+          value={deltaFilter}
+          onChange={setDeltaFilter}
+          options={[
+            { v: 'all' as DeltaFilter, display: 'All' },
+            { v: 'new' as DeltaFilter, display: 'New', className: 'bg-violet-600 text-white' },
+            { v: 'increased' as DeltaFilter, display: '▲ Added' },
+            { v: 'decreased' as DeltaFilter, display: '▼ Trimmed' },
+          ]}
+        />
+        <div className="w-px h-5 bg-[#d4d1c9]" />
+        <ChipGroup
+          label="Earnings"
+          value={earningsFilter}
+          onChange={setEarningsFilter}
+          options={[
+            { v: 'all' as EarningsFilter, display: 'All' },
+            { v: 'beat' as EarningsFilter, display: 'Beat', className: 'bg-emerald-600 text-white' },
+            { v: 'inline' as EarningsFilter, display: 'In-Line', className: 'bg-sky-600 text-white' },
+            { v: 'miss' as EarningsFilter, display: 'Miss', className: 'bg-red-600 text-white' },
+          ]}
+        />
+        {hasFilters && (
+          <>
+            <div className="w-px h-5 bg-[#d4d1c9]" />
+            <button
+              onClick={() => { setSearch(''); setSignalFilter('all'); setDeltaFilter('all'); setEarningsFilter('all'); }}
+              className="text-[11px] font-semibold text-[#007cba] hover:underline"
+            >Clear filters</button>
+            <span className="text-[11px] text-[#8a96a8] font-mono">{filtered.length} results</span>
+          </>
+        )}
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
@@ -262,11 +391,12 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
               <TH sortKey="weight" activeSortKey={sortKey} asc={sortAsc} onClick={handleSort} className="min-w-[120px]">Weight</TH>
               <TH sortKey="valueK" activeSortKey={sortKey} asc={sortAsc} onClick={handleSort} className="text-right">Value ($K)</TH>
               <TH sortKey="shares" activeSortKey={sortKey} asc={sortAsc} onClick={handleSort} className="text-right">Shares</TH>
-              <TH activeSortKey={sortKey} asc={sortAsc} className="text-right">Price</TH>
+              <TH sortKey="costPrice" activeSortKey={sortKey} asc={sortAsc} onClick={handleSort} className="text-right">Cost Price</TH>
+              <TH activeSortKey={sortKey} asc={sortAsc} className="text-right">Live Price</TH>
+              <TH sortKey="returnVsCost" activeSortKey={sortKey} asc={sortAsc} onClick={handleSort} className="text-right">Return</TH>
               <TH activeSortKey={sortKey} asc={sortAsc} className="text-right">Day %</TH>
               <TH activeSortKey={sortKey} asc={sortAsc} className="text-right">1M Rtn</TH>
               <TH activeSortKey={sortKey} asc={sortAsc} className="text-right">YTD</TH>
-              <TH activeSortKey={sortKey} asc={sortAsc}>Δ Q3→Q4</TH>
               <TH activeSortKey={sortKey} asc={sortAsc}>Last Earn</TH>
               <TH activeSortKey={sortKey} asc={sortAsc}>Next Earn</TH>
             </tr>
@@ -279,7 +409,7 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
                 onClick={() => setShowOthers(v => !v)}
                 className="cursor-pointer bg-[#f2f1ec] border-t-2 border-b border-t-[#007cba]/30 border-b-[#d4d1c9] hover:bg-[#e8ede8] transition-colors"
               >
-                <td colSpan={13} className="px-4 py-2.5">
+                <td colSpan={14} className="px-4 py-2.5">
                   <div className="flex items-center gap-2.5">
                     <span className={`text-[#007cba] text-[10px] transition-transform duration-200 inline-block ${showOthers ? 'rotate-90' : ''}`}>▶</span>
                     <span className="text-[12px] font-semibold text-[#007cba]">
@@ -299,7 +429,9 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
 
       <div className="px-4 py-2.5 border-t border-[#d4d1c9] bg-[#f8f7f3] flex items-center justify-between">
         <span className="text-[11px] text-[#8a96a8]">
-          {corePositions.length} core · {otherPositions.length} other · {positions.length} total · click row to expand
+          {hasFilters
+            ? `${filtered.length} of ${positions.length} positions · click row to expand`
+            : `${corePositions.length} core · ${otherPositions.length} other · ${positions.length} total · click row to expand`}
         </span>
         <span className="text-[11px] text-[#8a96a8] font-mono">
           Q4 2025 13-F

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Mono, IBM_Plex_Sans } from 'next/font/google';
 import Link from 'next/link';
+import NavLinks from '../components/NavLinks';
 import './globals.css';
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -55,28 +56,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Link>
 
             {/* Nav */}
-            <nav className="flex items-center gap-1">
-              <Link
-                href="/"
-                className="px-3 py-1.5 rounded text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                Overview
-              </Link>
-              <Link
-                href="/portfolio"
-                className="px-3 py-1.5 rounded text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                Portfolio
-              </Link>
+            <div className="flex items-center gap-3">
+              <NavLinks />
               <a
                 href="https://www.compasscap.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="ml-2 px-3 py-1.5 rounded border border-white/20 text-[13px] font-medium text-white/70 hover:text-white hover:border-white/40 transition-colors"
+                className="px-3 py-1.5 rounded border border-white/20 text-[13px] font-medium text-white/50 hover:text-white hover:border-white/40 transition-colors"
               >
                 compasscap.com ↗
               </a>
-            </nav>
+            </div>
           </div>
         </header>
 
