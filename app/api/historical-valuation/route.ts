@@ -32,14 +32,25 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // incomeStatementHistory fields that actually exist in yahoo-finance2:
+    //   totalRevenue, netIncome, netIncomeApplicableToCommonShares, ebit
+    //   (basicEps / dilutedEps do NOT exist here — EPS must be derived)
+    // cashflowStatementHistory has depreciationAndAmortization (needed for EBITDA)
     const summary = await yahooFinance.quoteSummary(sym, {
-      modules: ['incomeStatementHistory', 'balanceSheetHistory', 'defaultKeyStatistics'] as any,
+      modules: [
+        'incomeStatementHistory',
+        'balanceSheetHistory',
+        'cashflowStatementHistory',
+        'defaultKeyStatistics',
+      ] as any,
     }, { validateResult: false });
 
     const incomeStmts: any[] =
       (summary as any)?.incomeStatementHistory?.incomeStatementHistory ?? [];
     const balanceSheets: any[] =
       (summary as any)?.balanceSheetHistory?.balanceSheetStatements ?? [];
+    const cashflows: any[] =
+      (summary as any)?.cashflowStatementHistory?.cashflowStatements ?? [];
     const ks = (summary as any)?.defaultKeyStatistics ?? {};
     const sharesOutstanding: number | null = ks.sharesOutstanding ?? null;
 
@@ -48,14 +59,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ data: [] });
     }
 
-    // Balance sheet by fiscal year
+    // Index balance sheets and cashflows by fiscal year
     const bsMap = new Map<number, any>();
     for (const bs of balanceSheets) {
-      const yr = new Date(bs.endDate).getFullYear();
-      bsMap.set(yr, bs);
+      bsMap.set(new Date(bs.endDate).getFullYear(), bs);
+    }
+    const cfMap = new Map<number, any>();
+    for (const cf of cashflows) {
+      cfMap.set(new Date(cf.endDate).getFullYear(), cf);
     }
 
-    // Fetch 4 years of daily prices to find year-end closes
+    // Fetch 4 years of daily prices to find fiscal year-end closes
     const fourYearsAgo = new Date();
     fourYearsAgo.setFullYear(fourYearsAgo.getFullYear() - 4);
 
@@ -65,14 +79,12 @@ export async function GET(req: NextRequest) {
       interval: '1d',
     }, { validateResult: false }) ?? [];
 
-    // Map YYYY-MM-DD -> close price
     const priceMap = new Map<string, number>();
     for (const d of history) {
       const close = d.close ?? d.adjClose;
       if (close) priceMap.set(new Date(d.date).toISOString().slice(0, 10), close);
     }
 
-    // Find the closest available price to a target date (search ±10 trading days)
     function priceNear(target: Date): number | null {
       for (let offset = 0; offset <= 10; offset++) {
         for (const sign of [0, -1, 1]) {
@@ -89,39 +101,42 @@ export async function GET(req: NextRequest) {
 
     for (const stmt of incomeStmts.slice(0, 3)) {
       const endDate = new Date(stmt.endDate);
-      const year = endDate.getFullYear();
-      const price = priceNear(endDate);
+      const year    = endDate.getFullYear();
+      const price   = priceNear(endDate);
+      if (!price) continue;
 
-      const eps     = stmt.basicEps ?? stmt.dilutedEps ?? null;
+      const bs = bsMap.get(year);
+      const cf = cfMap.get(year);
+
+      // P/E: EPS derived from net income / shares (basicEps not in this module)
+      const netIncome = stmt.netIncomeApplicableToCommonShares ?? stmt.netIncome ?? null;
+      const eps = netIncome !== null ? netIncome / sharesOutstanding : null;
+
+      // P/S: price × shares / revenue
       const revenue = stmt.totalRevenue ?? null;
-      const bs      = bsMap.get(year);
-      const equity  = bs?.totalStockholderEquity ?? null;
 
-      // EV/EBITDA: approximate EBITDA from net income + D&A (if available)
-      const ebitda = stmt.ebitda ?? null;
-      const marketCap = price && sharesOutstanding ? price * sharesOutstanding : null;
+      // P/B: price × shares / stockholder equity
+      const equity = bs?.totalStockholderEquity ?? null;
+
+      // EV/EBITDA: EBITDA = EBIT + D&A (D&A from cashflow statement)
+      const ebit = stmt.ebit ?? null;
+      const da   = cf?.depreciationAndAmortization ?? null;
+      const ebitda = (ebit !== null && da !== null) ? ebit + da : null;
       const totalDebt = bs ? ((bs.shortLongTermDebt ?? 0) + (bs.longTermDebt ?? 0)) : 0;
       const cash = bs?.cash ?? 0;
-      const ev = marketCap ? marketCap + totalDebt - cash : null;
+      const ev = price * sharesOutstanding + totalDebt - cash;
+
+      const round1 = (v: number) => Math.round(v * 10) / 10;
 
       results.push({
         year,
-        pe:           (price && eps && eps > 0)
-                        ? Math.round((price / eps) * 10) / 10
-                        : null,
-        priceToSales: (price && revenue && revenue > 0)
-                        ? Math.round((price * sharesOutstanding) / revenue * 10) / 10
-                        : null,
-        priceToBook:  (price && equity && equity > 0)
-                        ? Math.round((price * sharesOutstanding) / equity * 10) / 10
-                        : null,
-        evEbitda:     (ev && ebitda && ebitda > 0)
-                        ? Math.round((ev / ebitda) * 10) / 10
-                        : null,
+        pe:           eps && eps > 0          ? round1(price / eps)                           : null,
+        priceToSales: revenue && revenue > 0  ? round1((price * sharesOutstanding) / revenue) : null,
+        priceToBook:  equity && equity > 0    ? round1((price * sharesOutstanding) / equity)  : null,
+        evEbitda:     ebitda && ebitda > 0    ? round1(ev / ebitda)                           : null,
       });
     }
 
-    // Oldest year first
     results.sort((a, b) => a.year - b.year);
 
     cache.set(sym, { data: results, expires: Date.now() + TTL });
