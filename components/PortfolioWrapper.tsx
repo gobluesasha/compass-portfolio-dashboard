@@ -7,6 +7,7 @@ import PortfolioTable from './PortfolioTable';
 interface Props {
   initialPositions: Position[];
   focusSym?: string;
+  initialSignalFilter?: string;
 }
 
 type LiveQuote = {
@@ -153,7 +154,7 @@ function mergePositions(
   });
 }
 
-export default function PortfolioWrapper({ initialPositions, focusSym }: Props) {
+export default function PortfolioWrapper({ initialPositions, focusSym, initialSignalFilter }: Props) {
   const [positions, setPositions] = useState<Position[]>(initialPositions);
   const [liveStatus, setLiveStatus] = useState<'loading' | 'live' | 'error'>('loading');
   const [timestamps, setTimestamps] = useState<DataTimestamps>({
@@ -277,7 +278,7 @@ export default function PortfolioWrapper({ initialPositions, focusSym }: Props) 
           </>
         )}
       </div>
-      <PortfolioTable positions={positions} focusSym={focusSym} timestamps={timestamps} />
+      <PortfolioTable positions={positions} focusSym={focusSym} timestamps={timestamps} initialSignalFilter={initialSignalFilter as any} />
     </div>
   );
 }

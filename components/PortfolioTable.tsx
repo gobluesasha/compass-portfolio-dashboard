@@ -23,6 +23,7 @@ interface Props {
   positions: Position[];
   focusSym?: string;
   timestamps: DataTimestamps;
+  initialSignalFilter?: SignalFilter;
 }
 
 const CORE_THRESHOLD = 0.027;
@@ -122,13 +123,13 @@ function WeightBar({ weight }: { weight: number }) {
   );
 }
 
-export default function PortfolioTable({ positions, focusSym, timestamps }: Props) {
+export default function PortfolioTable({ positions, focusSym, timestamps, initialSignalFilter }: Props) {
   const [expandedSym, setExpandedSym] = useState<string | null>(focusSym ?? null);
   const [sortKey, setSortKey] = useState<SortKey>('valueK');
   const [sortAsc, setSortAsc] = useState(false);
   const [showOthers, setShowOthers] = useState(false);
   const [search, setSearch] = useState('');
-  const [signalFilter, setSignalFilter] = useState<SignalFilter>('all');
+  const [signalFilter, setSignalFilter] = useState<SignalFilter>(initialSignalFilter ?? 'all');
   const [deltaFilter, setDeltaFilter] = useState<DeltaFilter>('all');
   const [earningsFilter, setEarningsFilter] = useState<EarningsFilter>('all');
 
@@ -228,10 +229,6 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
           <td className="px-3 py-2.5 text-right">
             <span className="font-mono text-xs text-[#4a5e78]">{pos.shares.toLocaleString()}</span>
           </td>
-          {/* Cost (13-F derived) */}
-          <td className="px-3 py-2.5 text-right">
-            <span className="font-mono text-xs text-[#8a96a8]">${costPrice(pos).toFixed(2)}</span>
-          </td>
           {/* Live Price */}
           <td className="px-3 py-2.5 text-right">
             {pos.market.price !== null ? (
@@ -285,7 +282,7 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
           </td>
         </tr>
         <tr>
-          <td colSpan={14} className="p-0">
+          <td colSpan={13} className="p-0">
             <ExpandedRow position={pos} isOpen={isExpanded} timestamps={timestamps} />
           </td>
         </tr>
@@ -391,7 +388,6 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
               <TH sortKey="weight" activeSortKey={sortKey} asc={sortAsc} onClick={handleSort} className="min-w-[120px]">Weight</TH>
               <TH sortKey="valueK" activeSortKey={sortKey} asc={sortAsc} onClick={handleSort} className="text-right">Value ($K)</TH>
               <TH sortKey="shares" activeSortKey={sortKey} asc={sortAsc} onClick={handleSort} className="text-right">Shares</TH>
-              <TH sortKey="costPrice" activeSortKey={sortKey} asc={sortAsc} onClick={handleSort} className="text-right">Cost Price</TH>
               <TH activeSortKey={sortKey} asc={sortAsc} className="text-right">Live Price</TH>
               <TH sortKey="returnVsCost" activeSortKey={sortKey} asc={sortAsc} onClick={handleSort} className="text-right">Return</TH>
               <TH activeSortKey={sortKey} asc={sortAsc} className="text-right">Day %</TH>
@@ -409,7 +405,7 @@ export default function PortfolioTable({ positions, focusSym, timestamps }: Prop
                 onClick={() => setShowOthers(v => !v)}
                 className="cursor-pointer bg-[#f2f1ec] border-t-2 border-b border-t-[#007cba]/30 border-b-[#d4d1c9] hover:bg-[#e8ede8] transition-colors"
               >
-                <td colSpan={14} className="px-4 py-2.5">
+                <td colSpan={13} className="px-4 py-2.5">
                   <div className="flex items-center gap-2.5">
                     <span className={`text-[#007cba] text-[10px] transition-transform duration-200 inline-block ${showOthers ? 'rotate-90' : ''}`}>▶</span>
                     <span className="text-[12px] font-semibold text-[#007cba]">

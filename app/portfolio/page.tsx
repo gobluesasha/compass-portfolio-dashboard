@@ -33,11 +33,11 @@ function SignalBar({ green, yellow, red }: { green: number; yellow: number; red:
 }
 
 interface PageProps {
-  searchParams: Promise<{ sym?: string }>;
+  searchParams: Promise<{ sym?: string; signal?: string }>;
 }
 
 export default async function PortfolioPage({ searchParams }: PageProps) {
-  const { sym: focusSym } = await searchParams;
+  const { sym: focusSym, signal } = await searchParams;
   const totalAUM = (PORTFOLIO_STATS.totalValueK / 1000).toFixed(1);
 
   return (
@@ -72,7 +72,7 @@ export default async function PortfolioPage({ searchParams }: PageProps) {
           </span>
         </div>
 
-        <PortfolioWrapper initialPositions={PORTFOLIO} focusSym={focusSym} />
+        <PortfolioWrapper initialPositions={PORTFOLIO} focusSym={focusSym} initialSignalFilter={signal} />
 
         <footer className="pt-2 pb-6 flex items-center justify-between">
           <span className="text-[10px] text-[#a8a49e] uppercase tracking-widest">

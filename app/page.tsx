@@ -227,23 +227,23 @@ export default function OverviewPage() {
           <div className="bg-white rounded-lg border border-[#e5e3dd] px-5 py-4 shadow-sm">
             <p className="text-[12px] font-semibold text-[#202e4a] mb-3">Signal Mix — Internal CCM Conviction Rating</p>
             <div className="flex h-3 rounded-full overflow-hidden gap-px mb-3">
-              <div className="bg-emerald-500" style={{ width: `${(PORTFOLIO_STATS.greenCount / PORTFOLIO_STATS.totalPositions) * 100}%` }} />
-              <div className="bg-amber-400" style={{ width: `${(PORTFOLIO_STATS.yellowCount / PORTFOLIO_STATS.totalPositions) * 100}%` }} />
-              <div className="bg-red-500" style={{ width: `${(PORTFOLIO_STATS.redCount / PORTFOLIO_STATS.totalPositions) * 100}%` }} />
+              <Link href="/portfolio?signal=green" className="bg-emerald-500 hover:brightness-110 transition-all cursor-pointer" style={{ width: `${(PORTFOLIO_STATS.greenCount / PORTFOLIO_STATS.totalPositions) * 100}%` }} title={`View ${PORTFOLIO_STATS.greenCount} Conviction positions`} />
+              <Link href="/portfolio?signal=yellow" className="bg-amber-400 hover:brightness-110 transition-all cursor-pointer" style={{ width: `${(PORTFOLIO_STATS.yellowCount / PORTFOLIO_STATS.totalPositions) * 100}%` }} title={`View ${PORTFOLIO_STATS.yellowCount} Monitor positions`} />
+              <Link href="/portfolio?signal=red" className="bg-red-500 hover:brightness-110 transition-all cursor-pointer" style={{ width: `${(PORTFOLIO_STATS.redCount / PORTFOLIO_STATS.totalPositions) * 100}%` }} title={`View ${PORTFOLIO_STATS.redCount} Concern positions`} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
-                { color: 'bg-emerald-500', label: `Conviction (${PORTFOLIO_STATS.greenCount} positions)`, desc: 'High-conviction holdings meeting all quality criteria. Thesis intact, fundamentals on track, no near-term risks.' },
-                { color: 'bg-amber-400',   label: `Monitor (${PORTFOLIO_STATS.yellowCount} positions)`,   desc: 'Held positions with mixed or uncertain signals. Under active review — thesis evolving, one or more watch criteria triggered.' },
-                { color: 'bg-red-500',     label: `Concern (${PORTFOLIO_STATS.redCount} positions)`,    desc: 'Positions where the core thesis has deteriorated. Sell criteria met or approaching — actively evaluating exit.' },
+                { color: 'bg-emerald-500', signal: 'green',  label: `Conviction (${PORTFOLIO_STATS.greenCount} positions)`,  desc: 'High-conviction holdings meeting all quality criteria. Thesis intact, fundamentals on track, no near-term risks.' },
+                { color: 'bg-amber-400',   signal: 'yellow', label: `Monitor (${PORTFOLIO_STATS.yellowCount} positions)`,    desc: 'Held positions with mixed or uncertain signals. Under active review — thesis evolving, one or more watch criteria triggered.' },
+                { color: 'bg-red-500',     signal: 'red',    label: `Concern (${PORTFOLIO_STATS.redCount} positions)`,      desc: 'Positions where the core thesis has deteriorated. Sell criteria met or approaching — actively evaluating exit.' },
               ].map(s => (
-                <div key={s.label} className="flex gap-3 items-start">
+                <Link key={s.signal} href={`/portfolio?signal=${s.signal}`} className="flex gap-3 items-start group hover:bg-[#f8f7f3] -mx-2 px-2 py-1.5 rounded-lg transition-colors">
                   <div className={`w-3 h-3 rounded-full ${s.color} mt-0.5 shrink-0`} />
                   <div>
-                    <p className="text-xs font-semibold text-[#202e4a]">{s.label}</p>
+                    <p className="text-xs font-semibold text-[#202e4a] group-hover:text-[#007cba] transition-colors">{s.label}</p>
                     <p className="text-[11px] text-[#6a7a8e] leading-relaxed mt-0.5">{s.desc}</p>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>

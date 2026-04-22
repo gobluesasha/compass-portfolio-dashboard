@@ -294,7 +294,7 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
           {/* ── LEFT: Chart + Price Info ── */}
           <div className="lg:col-span-2 p-4 border-r border-[#e5e3dd] flex flex-col gap-3">
 
-            {/* Sector / Industry / Delta tags */}
+            {/* Sector / Industry tags */}
             <div className="flex flex-wrap items-center gap-2">
               {sector && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#202e4a] text-white uppercase tracking-wide">
@@ -304,17 +304,6 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
               {industry && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#e5e3dd] text-[#4a5e78] uppercase tracking-wide">
                   {industry}
-                </span>
-              )}
-              {delta && delta.direction !== 'unchanged' && (
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border ${
-                  delta.direction === 'new' ? 'bg-violet-50 text-violet-700 border-violet-200'
-                  : delta.direction === 'increased' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : 'bg-red-50 text-red-600 border-red-200'
-                }`}>
-                  {delta.direction === 'new' ? 'NEW Q4'
-                    : delta.direction === 'increased' ? `▲ ${(delta.sharesDiffPct * 100).toFixed(1)}% Q3→Q4`
-                    : `▼ ${(Math.abs(delta.sharesDiffPct) * 100).toFixed(1)}% Q3→Q4`}
                 </span>
               )}
             </div>
