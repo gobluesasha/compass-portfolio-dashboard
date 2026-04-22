@@ -1,7 +1,10 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { Position } from '../types/portfolio';
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from 'recharts';
+import { Position, SparkPoint } from '../types/portfolio';
 import { DataTimestamps } from './PortfolioWrapper';
 
 interface Props {
@@ -42,57 +45,77 @@ function PerfBadge({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-function Sparkline({ data, height = 60 }: { data: number[]; height?: number }) {
+function fmtChartDate(dateStr: string) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function PriceChart({ data }: { data: SparkPoint[] }) {
   if (!data.length) return null;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const w = 280;
-  const h = height;
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w;
-    const y = h - ((v - min) / range) * h;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
-  const first = data[0];
-  const last  = data[data.length - 1];
+  const first = data[0].close;
+  const last  = data[data.length - 1].close;
   const isUp  = last >= first;
   const color = isUp ? '#10b981' : '#ef4444';
   const returnPct = ((last - first) / first * 100).toFixed(2);
 
+  const prices = data.map(d => d.close);
+  const minP = Math.min(...prices);
+  const maxP = Math.max(...prices);
+  const pad  = (maxP - minP) * 0.08 || 1;
+  const domain: [number, number] = [minP - pad, maxP + pad];
+
+  // Show ~5 evenly-spaced x-axis ticks
+  const tickInterval = Math.floor(data.length / 5);
+
   return (
-    <div className="flex flex-col gap-1">
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }}>
-        {/* Gradient fill */}
-        <defs>
-          <linearGradient id={`grad-${isUp}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.15" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
-        {/* Area fill */}
-        <polygon
-          points={`0,${h} ${pts} ${w},${h}`}
-          fill={`url(#grad-${isUp})`}
-        />
-        {/* Line */}
-        <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-        {/* End dot */}
-        {data.length > 1 && (
-          <circle
-            cx={w}
-            cy={h - ((last - min) / range) * h}
-            r="2.5"
-            fill={color}
-          />
-        )}
-      </svg>
+    <div className="flex flex-col gap-1.5">
       <div className="flex justify-between items-center">
-        <span className="text-[10px] text-[#8a96a8] font-mono">90-day</span>
+        <span className="text-[10px] text-[#8a96a8] font-mono">90-day close</span>
         <span className={`text-[11px] font-mono font-semibold ${isUp ? 'text-emerald-600' : 'text-red-600'}`}>
           {isUp ? '+' : ''}{returnPct}%
         </span>
       </div>
+      <ResponsiveContainer width="100%" height={180}>
+        <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0eee9" vertical={false} />
+          <XAxis
+            dataKey="date"
+            tickFormatter={fmtChartDate}
+            interval={tickInterval}
+            tick={{ fontSize: 10, fill: '#8a96a8' }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            domain={domain}
+            tickFormatter={v => `$${v.toFixed(0)}`}
+            tick={{ fontSize: 10, fill: '#8a96a8' }}
+            axisLine={false}
+            tickLine={false}
+            width={48}
+          />
+          <Tooltip
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const pt = payload[0].payload as SparkPoint;
+              return (
+                <div className="bg-white border border-[#e5e3dd] rounded shadow-sm px-2.5 py-1.5 text-[11px]">
+                  <p className="text-[#8a96a8]">{fmtChartDate(pt.date)}</p>
+                  <p className="font-mono font-semibold text-[#202e4a]">${pt.close.toFixed(2)}</p>
+                </div>
+              );
+            }}
+          />
+          <Line
+            type="monotone"
+            dataKey="close"
+            stroke={color}
+            strokeWidth={1.5}
+            dot={false}
+            activeDot={{ r: 3, fill: color, strokeWidth: 0 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -352,13 +375,13 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
               )}
             </div>
 
-            {/* Price chart (real sparkline or placeholder) */}
+            {/* Price chart */}
             <div>
               <SectionHeader title="Price Chart · 90 Days" />
               {market.sparkline && market.sparkline.length > 1 ? (
-                <Sparkline data={market.sparkline} height={48} />
+                <PriceChart data={market.sparkline} />
               ) : (
-                <div className="w-full h-14 rounded border border-dashed border-[#c8c4bc] bg-white flex items-center justify-center">
+                <div className="w-full h-[180px] rounded border border-dashed border-[#c8c4bc] bg-white flex items-center justify-center">
                   <span className="text-[10px] text-[#8a96a8] animate-pulse">Loading chart data…</span>
                 </div>
               )}

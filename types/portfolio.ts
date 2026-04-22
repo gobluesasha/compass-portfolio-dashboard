@@ -21,13 +21,18 @@ export interface CsvFields {
   shares: number;
 }
 
+export interface SparkPoint {
+  date: string;   // YYYY-MM-DD
+  close: number;
+}
+
 export interface MarketData {
   price: number | null;
   dayChangePct: number | null;
   totalReturnPct: number | null;
   quarterlyGrowth: number | null;
   contributionToReturn: number | null;
-  sparkline: number[] | null;       // ~90-day daily close prices
+  sparkline: SparkPoint[] | null;   // ~90-day daily close prices with dates
 }
 
 export interface EarningsData {

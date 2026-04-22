@@ -3,6 +3,8 @@ import yahooFinance from '../../../lib/yahooFinance';
 
 export const dynamic = 'force-dynamic';
 
+export type SparkPoint = { date: string; close: number };
+
 export type ReturnsItem = {
   symbol: string;
   return1MPct: number | null;
@@ -10,7 +12,7 @@ export type ReturnsItem = {
   returnYTDPct: number | null;
   quarterlyReturnPct: number | null;
   maxDrawdownPct: number | null;
-  sparkline: number[] | null;        // last 90 trading days of closes
+  sparkline: SparkPoint[] | null;    // last 90 trading days: { date, close }
   error?: boolean;
 };
 
@@ -67,9 +69,15 @@ async function fetchOne(symbol: string): Promise<ReturnsItem> {
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
-    const closes: number[] = sorted
-      .map((d: any) => d.close ?? d.adjClose ?? null)
-      .filter((v: number | null) => v !== null);
+    const closesWithDates: SparkPoint[] = sorted
+      .map((d: any) => {
+        const close = d.close ?? d.adjClose ?? null;
+        const date = new Date(d.date).toISOString().slice(0, 10);
+        return close !== null ? { date, close } : null;
+      })
+      .filter((v): v is SparkPoint => v !== null);
+
+    const closes: number[] = closesWithDates.map(d => d.close);
 
     if (!closes.length) {
       cache.set(symbol, { item: empty, expires: Date.now() + 60_000 });
@@ -92,7 +100,7 @@ async function fetchOne(symbol: string): Promise<ReturnsItem> {
       returnYTDPct,
       quarterlyReturnPct: computeReturn(closes, 63),
       maxDrawdownPct:     computeMaxDrawdown(closes),
-      sparkline:          closes.slice(-90),
+      sparkline:          closesWithDates.slice(-90),
     };
 
     cache.set(symbol, { item, expires: Date.now() + TTL });

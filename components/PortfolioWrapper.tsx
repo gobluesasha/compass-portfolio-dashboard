@@ -58,6 +58,8 @@ type FundamentalsItem = {
   officers: { name: string; title: string }[] | null;
 };
 
+type SparkPoint = { date: string; close: number };
+
 type ReturnsItem = {
   symbol: string;
   return1MPct: number | null;
@@ -65,7 +67,7 @@ type ReturnsItem = {
   returnYTDPct: number | null;
   quarterlyReturnPct: number | null;
   maxDrawdownPct: number | null;
-  sparkline: number[] | null;
+  sparkline: SparkPoint[] | null;
 };
 
 export type DataTimestamps = {
