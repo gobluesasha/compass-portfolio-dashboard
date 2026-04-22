@@ -249,6 +249,86 @@ type PeerItem = {
   changePct: number | null;
 };
 
+type HistoricalValYear = {
+  year: number;
+  pe: number | null;
+  priceToSales: number | null;
+  priceToBook: number | null;
+  evEbitda: number | null;
+};
+
+// Which historical series to show per metric label
+const HIST_KEY_MAP: Record<string, keyof Omit<HistoricalValYear, 'year'>> = {
+  'P/E (TTM)':    'pe',
+  'P/B':          'priceToBook',
+  'Price / Sales': 'priceToSales',
+  'EV / EBITDA':  'evEbitda',
+};
+
+function ValuationCell({
+  label, value, historical,
+}: {
+  label: string;
+  value: string | null;
+  historical: HistoricalValYear[] | null;
+}) {
+  const [show, setShow] = useState(false);
+  const histKey = HIST_KEY_MAP[label];
+  const hasHistory = histKey && historical && historical.some(h => h[histKey] !== null);
+
+  const points = hasHistory
+    ? historical!.map(h => ({ year: h.year, val: h[histKey] as number | null }))
+    : [];
+  const defined = points.filter(p => p.val !== null) as { year: number; val: number }[];
+  const maxVal = defined.length ? Math.max(...defined.map(p => p.val)) : 1;
+
+  return (
+    <div className="relative flex flex-col gap-0.5 min-w-0"
+      onMouseEnter={() => hasHistory && setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <span className="text-[10px] font-medium text-[#8a96a8] tracking-wide flex items-center gap-1">
+        {label}
+        {hasHistory && <span className="text-[8px] text-[#007cba] font-mono">▲ 3Y</span>}
+      </span>
+      <span className={`text-sm font-mono font-semibold ${value === null ? 'text-[#c8cdd6]' : 'text-[#202e4a]'} ${hasHistory ? 'cursor-help underline decoration-dotted decoration-[#007cba]/40' : ''}`}>
+        {value ?? '—'}
+      </span>
+
+      {show && hasHistory && (
+        <div className="absolute bottom-full left-0 mb-2 z-50 bg-white border border-[#d4d1c9] rounded-lg shadow-lg p-3 w-48"
+          style={{ pointerEvents: 'none' }}>
+          <p className="text-[10px] font-semibold text-[#007cba] uppercase tracking-wide mb-2.5">
+            {label} · 3-Year History
+          </p>
+          <div className="flex flex-col gap-2">
+            {points.map(p => (
+              <div key={p.year} className="flex items-center gap-2">
+                <span className="text-[10px] font-mono text-[#8a96a8] w-10 shrink-0">FY{p.year}</span>
+                <div className="flex-1 h-1.5 bg-[#f2f1ec] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#007cba]/70"
+                    style={{ width: p.val !== null ? `${(p.val / maxVal) * 100}%` : '0%' }}
+                  />
+                </div>
+                <span className="text-[10px] font-mono font-semibold text-[#202e4a] w-10 text-right shrink-0">
+                  {p.val !== null ? `${p.val.toFixed(1)}×` : '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2.5 pt-2 border-t border-[#f2f1ec]">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-[#8a96a8]">Current (TTM)</span>
+              <span className="text-[10px] font-mono font-semibold text-[#202e4a]">{value ?? '—'}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function fmtPct(v: number | null, decimals = 1, isRatio = false): string | null {
   if (v === null) return null;
   const val = isRatio ? v * 100 : v;
@@ -274,9 +354,10 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
   const [bioExpanded, setBioExpanded] = useState(false);
   const [peers, setPeers] = useState<PeerItem[] | null>(null);
   const [peersLoading, setPeersLoading] = useState(false);
+  const [historicalVal, setHistoricalVal] = useState<HistoricalValYear[] | null>(null);
 
   const loadPeers = useCallback(() => {
-    if (peers !== null) return; // already loaded
+    if (peers !== null) return;
     setPeersLoading(true);
     fetch(`/api/peers?sym=${position.sym}`)
       .then(r => r.json())
@@ -284,9 +365,17 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
       .catch(() => { setPeers([]); setPeersLoading(false); });
   }, [position.sym, peers]);
 
+  const loadHistoricalVal = useCallback(() => {
+    if (historicalVal !== null) return;
+    fetch(`/api/historical-valuation?sym=${position.sym}`)
+      .then(r => r.json())
+      .then(j => setHistoricalVal(j.data ?? []))
+      .catch(() => setHistoricalVal([]));
+  }, [position.sym, historicalVal]);
+
   useEffect(() => {
-    if (isOpen) loadPeers();
-  }, [isOpen, loadPeers]);
+    if (isOpen) { loadPeers(); loadHistoricalVal(); }
+  }, [isOpen, loadPeers, loadHistoricalVal]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -464,17 +553,20 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
             {/* Valuation */}
             <div>
               <SectionHeader title="Valuation Multiples" />
+              {historicalVal === null && (
+                <p className="text-[9px] text-[#c8cdd6] font-mono mb-2 animate-pulse">Loading historical data…</p>
+              )}
               <div className="grid grid-cols-2 gap-3">
-                <StatCell label="P/E (TTM)" value={fmtMult(valuation.pe)} />
-                <StatCell label="Fwd P/E" value={fmtMult(valuation.forwardPe)} />
-                <StatCell label="P/B" value={fmtMult(valuation.priceToBook)} />
-                <StatCell label="PEG Ratio" value={fmtMult(valuation.peg, 2)} />
-                <StatCell label="EV / EBITDA" value={fmtMult(valuation.evEbitda)} />
-                <StatCell label="EV / Revenue" value={fmtMult(valuation.evRevenue)} />
-                <StatCell label="Price / Sales" value={fmtMult(valuation.priceToSales)} />
-                <StatCell label="ROE" value={fmtPct(fundamentals.returnOnEquity, 1, true)} />
-                <StatCell label="D/E Ratio" value={risk.debtToEquity !== null ? risk.debtToEquity.toFixed(2) : null} />
-                <StatCell label="Div. Yield" value={valuation.dividendYield !== null ? `${(valuation.dividendYield * 100).toFixed(2)}%` : null} />
+                <ValuationCell label="P/E (TTM)"    value={fmtMult(valuation.pe)}           historical={historicalVal} />
+                <StatCell      label="Fwd P/E"      value={fmtMult(valuation.forwardPe)} />
+                <ValuationCell label="P/B"           value={fmtMult(valuation.priceToBook)}   historical={historicalVal} />
+                <StatCell      label="PEG Ratio"    value={fmtMult(valuation.peg, 2)} />
+                <ValuationCell label="EV / EBITDA"  value={fmtMult(valuation.evEbitda)}       historical={historicalVal} />
+                <StatCell      label="EV / Revenue" value={fmtMult(valuation.evRevenue)} />
+                <ValuationCell label="Price / Sales" value={fmtMult(valuation.priceToSales)}  historical={historicalVal} />
+                <StatCell      label="ROE"          value={fmtPct(fundamentals.returnOnEquity, 1, true)} />
+                <StatCell      label="D/E Ratio"    value={risk.debtToEquity !== null ? risk.debtToEquity.toFixed(2) : null} />
+                <StatCell      label="Div. Yield"   value={valuation.dividendYield !== null ? `${(valuation.dividendYield * 100).toFixed(2)}%` : null} />
               </div>
             </div>
 
