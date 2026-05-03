@@ -7,6 +7,8 @@ import { PORTFOLIO, PORTFOLIO_STATS } from '../lib/portfolioData';
 
 const PortfolioAnalytics = dynamic(() => import('../components/PortfolioAnalytics'), { ssr: false });
 
+const CORE_THRESHOLD = 0.027;
+
 type BenchmarkItem = {
   symbol: string; label: string; format: string;
   price: number | null; change: number | null; changePct: number | null; marketState: string;
@@ -17,7 +19,10 @@ type LiveQuote = {
   dividendYield: number | null; dividendRate: number | null;
 };
 
-// ── Helpers ──────────────────────────────────────────────────
+type ReturnsItem = {
+  symbol: string; returnYTDPct: number | null; return1MPct: number | null;
+};
+
 function fmt(value: number | null, format: string): string {
   if (value === null) return '—';
   if (format === 'rate')    return `${value.toFixed(2)}%`;
@@ -96,6 +101,7 @@ export default function OverviewPage() {
   const [benchState, setBenchState] = useState<'loading' | 'success' | 'error'>('loading');
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
   const [liveQuotes, setLiveQuotes] = useState<LiveQuote[]>([]);
+  const [coreReturns, setCoreReturns] = useState<ReturnsItem[]>([]);
 
   const loadBenchmarks = useCallback(async () => {
     setBenchState('loading');
@@ -131,6 +137,22 @@ export default function OverviewPage() {
     load();
     const id = setInterval(load, 60_000);
     return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  // Fetch returns for core 25 once (4h cache)
+  useEffect(() => {
+    let cancelled = false;
+    const coreSyms = PORTFOLIO.filter(p => p.weight >= CORE_THRESHOLD).map(p => p.sym).join(',');
+    async function load() {
+      try {
+        const res = await fetch(`/api/returns?symbols=${coreSyms}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled) setCoreReturns(json.data);
+      } catch { /* non-fatal */ }
+    }
+    load();
+    return () => { cancelled = true; };
   }, []);
 
   // Movers
@@ -270,6 +292,81 @@ export default function OverviewPage() {
             </div>
           </section>
         )}
+
+        {/* Core 25 Performance */}
+        <section className="flex flex-col gap-3">
+          <SectionDivider title="Core 25 Performance" right={
+            <Link href="/portfolio" className="text-[10px] text-[#007cba] hover:text-[#005a87] uppercase tracking-widest transition-colors">
+              Full Table →
+            </Link>
+          } />
+          <div className="bg-white rounded-lg border border-[#d4d1c9] shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-[#202e4a] border-b border-[#182438]">
+                    <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-white/55 tracking-wide w-[80px]">Ticker</th>
+                    <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-white/55 tracking-wide min-w-[160px]">Company</th>
+                    <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-white/55 tracking-wide">Price</th>
+                    <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-white/55 tracking-wide">Day %</th>
+                    <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-white/55 tracking-wide">1M Rtn</th>
+                    <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-white/55 tracking-wide">YTD</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PORTFOLIO.filter(p => p.weight >= CORE_THRESHOLD).map((pos, idx) => {
+                    const q = liveQuotes.find(l => l.symbol === pos.sym);
+                    const r = coreReturns.find(l => l.symbol === pos.sym);
+                    const isEven = idx % 2 === 0;
+                    return (
+                      <tr key={pos.sym} className={`border-b transition-colors ${isEven ? 'bg-white border-b-[#eeece7] hover:bg-[#eef6fb]' : 'bg-[#faf9f6] border-b-[#eeece7] hover:bg-[#eef6fb]'}`}>
+                        <td className="px-3 py-2">
+                          <Link href={`/portfolio?sym=${pos.sym}`} className="font-mono text-xs font-bold text-[#007cba] hover:underline tracking-wide">
+                            {pos.sym}
+                          </Link>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="text-xs text-[#4a5e78] truncate max-w-[200px] block">
+                            {pos.issuerName.length > 28 ? pos.issuerName.slice(0, 27) + '…' : pos.issuerName}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {q?.price != null
+                            ? <span className="font-mono text-xs text-[#202e4a]">${q.price.toFixed(2)}</span>
+                            : <span className="text-[#c8cdd6] font-mono text-xs">—</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {q?.changePct != null ? (
+                            <span className={`font-mono text-xs font-semibold ${q.changePct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {q.changePct >= 0 ? '+' : ''}{q.changePct.toFixed(2)}%
+                            </span>
+                          ) : <span className="text-[#c8cdd6] font-mono text-xs">—</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {r?.return1MPct != null ? (
+                            <span className={`font-mono text-xs font-semibold ${r.return1MPct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {r.return1MPct >= 0 ? '+' : ''}{(r.return1MPct * 100).toFixed(1)}%
+                            </span>
+                          ) : <span className="text-[#c8cdd6] font-mono text-xs">—</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {r?.returnYTDPct != null ? (
+                            <span className={`font-mono text-xs font-semibold ${r.returnYTDPct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {r.returnYTDPct >= 0 ? '+' : ''}{(r.returnYTDPct * 100).toFixed(1)}%
+                            </span>
+                          ) : <span className="text-[#c8cdd6] font-mono text-xs">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-4 py-2 border-t border-[#d4d1c9] bg-[#f8f7f3]">
+              <span className="text-[11px] text-[#8a96a8]">25 core positions · weight ≥ 2.7% · click ticker to expand in portfolio</span>
+            </div>
+          </div>
+        </section>
 
         {/* Portfolio Analytics + 13-F sidebar */}
         <section className="flex flex-col gap-3">

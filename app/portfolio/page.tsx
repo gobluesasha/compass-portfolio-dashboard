@@ -1,5 +1,5 @@
 import { PORTFOLIO, PORTFOLIO_STATS } from '../../lib/portfolioData';
-import PortfolioWrapper from '../../components/PortfolioWrapper';
+import PortfolioTabs from '../../components/PortfolioTabs';
 
 function StatCard({ label, value, sub, accent = false }: {
   label: string; value: string; sub?: string; accent?: boolean;
@@ -61,18 +61,7 @@ export default async function PortfolioPage({ searchParams }: PageProps) {
           />
         </div>
 
-        {/* Section header */}
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] font-semibold text-[#8a96a8] tracking-wide">
-            Holdings · Q4 2025 13-F
-          </span>
-          <div className="flex-1 h-px bg-[#d4d1c9]" />
-          <span className="text-[11px] text-[#8a96a8]">
-            Click column to sort · click row to expand
-          </span>
-        </div>
-
-        <PortfolioWrapper initialPositions={PORTFOLIO} focusSym={focusSym} initialSignalFilter={signal} />
+        <PortfolioTabs initialPositions={PORTFOLIO} focusSym={focusSym} initialSignalFilter={signal} />
 
         <footer className="pt-2 pb-6 flex items-center justify-between">
           <span className="text-[10px] text-[#a8a49e] uppercase tracking-widest">
