@@ -70,14 +70,19 @@ function AISummaryCard({ sym, news, apiReady }: { sym: string; news: NewsItem[];
   const [state, setState] = useState<SummaryState>({ status: 'idle' });
   const prevSym = useRef<string>('');
 
+  // Reset state and prevSym when holding changes so re-selecting triggers a fresh fetch
   useEffect(() => {
-    if (sym === prevSym.current) return;
+    prevSym.current = '';
+    setState({ status: 'idle' });
+  }, [sym]);
+
+  useEffect(() => {
+    const headlines = news.filter(n => n.relatedSymbol === sym).map(n => n.title);
+    if (!apiReady || headlines.length === 0) { setState({ status: 'idle' }); return; }
+    if (sym === prevSym.current) return; // de-dupe only after all checks pass
     prevSym.current = sym;
 
-    const headlines = news.filter(n => n.relatedSymbol === sym).map(n => n.title);
-    if (headlines.length === 0) { setState({ status: 'idle' }); return; }
-    if (!apiReady) { setState({ status: 'idle' }); return; }
-
+    let cancelled = false;
     setState({ status: 'loading' });
     fetch('/api/news-summary', {
       method: 'POST',
@@ -86,13 +91,12 @@ function AISummaryCard({ sym, news, apiReady }: { sym: string; news: NewsItem[];
     })
       .then(r => r.json())
       .then(json => {
-        if (json.data) {
-          setState({ status: 'done', bullets: json.data.bullets, sentiment: json.data.sentiment, generatedAt: json.data.generatedAt });
-        } else {
-          setState({ status: 'error' });
-        }
+        if (cancelled) return;
+        if (json.data) setState({ status: 'done', bullets: json.data.bullets, sentiment: json.data.sentiment, generatedAt: json.data.generatedAt });
+        else setState({ status: 'error' });
       })
-      .catch(() => setState({ status: 'error' }));
+      .catch(() => { if (!cancelled) setState({ status: 'error' }); });
+    return () => { cancelled = true; };
   }, [sym, news, apiReady]);
 
   if (!apiReady) return (
