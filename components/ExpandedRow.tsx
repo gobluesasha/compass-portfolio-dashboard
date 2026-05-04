@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import { Position, SparkPoint } from '../types/portfolio';
 import { DataTimestamps } from './PortfolioWrapper';
+import { SECTOR_BENCHMARKS, SECTOR_CATALYST } from '../lib/sectorBenchmarks';
 
 interface Props {
   position: Position;
@@ -219,38 +220,6 @@ function AnalystGauge({ sym, rating, target, current, analysts, analystActions }
     </div>
   );
 }
-
-// Industry-level benchmarks by sector (approximate medians, decimal fractions)
-const SECTOR_BENCHMARKS: Record<string, Partial<Record<string, number>>> = {
-  'Technology': {
-    revenueGrowthPct: 0.12, grossMarginPct: 0.65, operatingMarginPct: 0.20,
-    netMarginPct: 0.18, returnOnEquity: 0.28, ebitdaMarginPct: 0.28, fcfMarginPct: 0.20, returnOnAssets: 0.10,
-  },
-  'Healthcare': {
-    revenueGrowthPct: 0.08, grossMarginPct: 0.55, operatingMarginPct: 0.15,
-    netMarginPct: 0.12, returnOnEquity: 0.20, ebitdaMarginPct: 0.20, fcfMarginPct: 0.15, returnOnAssets: 0.07,
-  },
-  'Industrials': {
-    revenueGrowthPct: 0.07, grossMarginPct: 0.35, operatingMarginPct: 0.12,
-    netMarginPct: 0.09, returnOnEquity: 0.18, ebitdaMarginPct: 0.15, fcfMarginPct: 0.10, returnOnAssets: 0.06,
-  },
-  'Financials': {
-    revenueGrowthPct: 0.06, grossMarginPct: 0.60, operatingMarginPct: 0.30,
-    netMarginPct: 0.25, returnOnEquity: 0.15, ebitdaMarginPct: 0.35, fcfMarginPct: 0.25, returnOnAssets: 0.08,
-  },
-  'Consumer Staples': {
-    revenueGrowthPct: 0.04, grossMarginPct: 0.35, operatingMarginPct: 0.14,
-    netMarginPct: 0.10, returnOnEquity: 0.25, ebitdaMarginPct: 0.18, fcfMarginPct: 0.12, returnOnAssets: 0.07,
-  },
-  'Communication Services': {
-    revenueGrowthPct: 0.09, grossMarginPct: 0.55, operatingMarginPct: 0.18,
-    netMarginPct: 0.15, returnOnEquity: 0.22, ebitdaMarginPct: 0.30, fcfMarginPct: 0.18, returnOnAssets: 0.09,
-  },
-  'Materials': {
-    revenueGrowthPct: 0.05, grossMarginPct: 0.28, operatingMarginPct: 0.12,
-    netMarginPct: 0.08, returnOnEquity: 0.15, ebitdaMarginPct: 0.18, fcfMarginPct: 0.10, returnOnAssets: 0.06,
-  },
-};
 
 // Fundamentals cell with sector benchmark hover tooltip
 function FundamentalCell({ label, value, metricKey, sector }: {
@@ -485,6 +454,57 @@ function fmtB(v: number | null): string | null {
   return `$${v.toLocaleString()}`;
 }
 
+function generateNotes(position: Position) {
+  const { status, sector, fundamentals, analyst, earnings } = position;
+
+  const ratingWord = analyst.consensusRating !== null
+    ? analyst.consensusRating <= 1.5 ? 'Strong Buy'
+    : analyst.consensusRating <= 2.5 ? 'Buy'
+    : analyst.consensusRating <= 3.5 ? 'Hold'
+    : 'Underperform'
+    : null;
+
+  const g = (v: number | null, mul = 100, dec = 1) => v !== null ? `${(v * mul).toFixed(dec)}%` : null;
+
+  const thesis = {
+    green: [
+      'High-conviction position with thesis intact.',
+      fundamentals.grossMarginPct !== null ? `Gross margin of ${g(fundamentals.grossMarginPct)} reflects durable pricing power.` : null,
+      fundamentals.revenueGrowthPct !== null ? `Revenue growth of ${g(fundamentals.revenueGrowthPct)} YoY tracking in-line with expectations.` : null,
+      ratingWord && analyst.numberOfAnalysts ? `${analyst.numberOfAnalysts} analysts rate ${ratingWord}${analyst.targetPrice ? ` with $${analyst.targetPrice.toFixed(0)} avg target` : ''}.` : null,
+    ].filter(Boolean).join(' '),
+    yellow: [
+      'Thesis partially intact; under active monitoring.',
+      fundamentals.revenueGrowthPct !== null ? `Revenue growth of ${g(fundamentals.revenueGrowthPct)} YoY warrants observation against plan.` : null,
+      'Margin trends and competitive positioning require close tracking.',
+      ratingWord ? `Analyst consensus is ${ratingWord}${analyst.targetPrice ? ` ($${analyst.targetPrice.toFixed(0)} avg target)` : ''}.` : null,
+    ].filter(Boolean).join(' '),
+    red: [
+      'Thesis showing material strain; position under active review.',
+      'Key fundamental metrics have deteriorated relative to prior periods.',
+      ratingWord ? `Analyst consensus has shifted to ${ratingWord}.` : null,
+      'Evaluating exit timeline and position sizing ahead of next committee review.',
+    ].filter(Boolean).join(' '),
+  }[status];
+
+  const whatNeedsToGoRight = {
+    green:  `Continued revenue growth in-line with guidance. Margin stability or expansion vs. prior year. Ongoing earnings beats. No deterioration in competitive moat or pricing power within ${sector ?? 'core market'}.`,
+    yellow: `Next quarterly earnings must show stabilization or sequential improvement. Margin trajectory needs to reverse. Management must provide clear, credible guidance on growth outlook and cost structure.`,
+    red:    `Meaningful and sustained improvement in fundamental metrics. Earnings beat with forward guidance lift required to rebuild conviction. Analyst community must begin upward revisions.`,
+  }[status];
+
+  const sellCriteria = {
+    green:  `Two consecutive earnings misses with guidance cuts. Structural margin deterioration exceeding 300bps YoY. Loss of key competitive differentiators or market share. Analyst consensus declining to Underperform/Sell.`,
+    yellow: `Continued underperformance vs. sector peers in next reporting cycle. Failure to stabilize margins. Material negative revision to multi-year revenue outlook. Management credibility deterioration.`,
+    red:    `No measurable improvement in thesis fundamentals within 1–2 quarters. Accelerating market share loss or pricing power erosion. Further analyst downgrades. Any breach of key financial covenants.`,
+  }[status];
+
+  const nextEarningsStr = earnings.nextEarningsDate ? `Next earnings: ${earnings.nextEarningsDate}. ` : '';
+  const catalysts = `${nextEarningsStr}Management guidance update at next reporting cycle. ${SECTOR_CATALYST[sector ?? ''] ?? 'Macro developments and sector-specific regulatory changes.'}`;
+
+  return { thesis, whatNeedsToGoRight, sellCriteria, catalysts };
+}
+
 export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
@@ -652,6 +672,44 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
           {/* ── RIGHT ── */}
           <div className="lg:col-span-3 p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
 
+            {/* Investment Notes — moved above analyst consensus */}
+            {(() => {
+              const notes = generateNotes(position);
+              const statusStyles = {
+                green:  { badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Conviction' },
+                yellow: { badge: 'bg-amber-50 text-amber-700 border-amber-200',       label: 'Monitor'    },
+                red:    { badge: 'bg-red-50 text-red-600 border-red-200',             label: 'Concern'    },
+              }[position.status];
+              return (
+                <div className="md:col-span-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[11px] font-semibold text-[#007cba] tracking-wide">Investment Notes</span>
+                    <div className="flex-1 h-px bg-[#e5e3dd]" />
+                    <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-semibold border uppercase tracking-wide ${statusStyles.badge}`}>{statusStyles.label}</span>
+                    <button disabled className="text-[10px] text-[#a8a49e] border border-[#d4d1c9] rounded px-2 py-0.5 cursor-not-allowed select-none">✏ Edit Notes</button>
+                  </div>
+                  {/* Generated placeholder banner */}
+                  <div className="mb-2 px-3 py-1.5 rounded bg-amber-50 border border-amber-200 flex items-center gap-2">
+                    <span className="text-[9px] font-bold text-amber-600 uppercase tracking-widest">Auto-generated from market data</span>
+                    <span className="text-[9px] text-amber-500">· Pending investment team review & override</span>
+                  </div>
+                  <div className="rounded border border-[#d4d1c9] bg-white px-4 py-3 flex flex-col gap-2.5">
+                    {[
+                      { label: 'Investment Thesis',          text: notes.thesis },
+                      { label: 'What Needs to Go Right',     text: notes.whatNeedsToGoRight },
+                      { label: 'Kill Criteria / Sell Triggers', text: notes.sellCriteria },
+                      { label: 'Key Catalysts (Next 90d)',   text: notes.catalysts },
+                    ].map(f => (
+                      <div key={f.label}>
+                        <p className="text-[10px] font-semibold text-[#8a96a8] uppercase tracking-wide mb-0.5">{f.label}</p>
+                        <p className="text-[11px] text-[#4a5e78] leading-relaxed">{f.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Analyst consensus */}
             <div className="md:col-span-2">
               <SectionHeader title="Analyst Consensus" />
@@ -781,36 +839,6 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
               ) : null}
             </div>
 
-            {/* Investment Notes — compact thesis framework */}
-            <div className="md:col-span-2">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[11px] font-semibold text-[#007cba] tracking-wide">Investment Notes</span>
-                <div className="flex-1 h-px bg-[#e5e3dd]" />
-                <button
-                  disabled
-                  title="Integration point — connect to notes CMS or internal system"
-                  className="text-[10px] text-[#a8a49e] border border-[#d4d1c9] rounded px-2 py-0.5 cursor-not-allowed select-none"
-                >✏ Edit Notes</button>
-              </div>
-              <div className="rounded border border-dashed border-[#d4d1c9] bg-white px-4 py-3 flex flex-col gap-2">
-                {[
-                  { label: 'Investment Thesis',         hint: '2–3 sentence summary' },
-                  { label: 'What Needs to Go Right',    hint: '3 key assumptions' },
-                  { label: 'Kill Criteria / Sell Triggers', hint: '3 sell triggers' },
-                  { label: 'Key Catalysts (Next 90d)',  hint: 'near-term events' },
-                ].map(f => (
-                  <div key={f.label} className="flex items-baseline gap-3">
-                    <span className="text-[10px] font-medium text-[#8a96a8] w-40 shrink-0">{f.label}</span>
-                    <span className="text-[10px] text-[#a8a49e] italic">[Integration point — awaiting investment team · {f.hint}]</span>
-                  </div>
-                ))}
-                <div className="flex items-center gap-3 pt-1 border-t border-[#f2f1ec] mt-1">
-                  <span className="text-[10px] font-medium text-[#8a96a8] w-40 shrink-0">Thesis Status</span>
-                  <span className="inline-block px-2 py-0.5 rounded text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-wide">under review</span>
-                  <span className="text-[10px] text-[#c8cdd6] ml-auto font-mono">Last review: —</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

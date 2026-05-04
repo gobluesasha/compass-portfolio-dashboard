@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { PORTFOLIO, PORTFOLIO_STATS } from '../lib/portfolioData';
+import { SECTOR_BENCHMARKS } from '../lib/sectorBenchmarks';
 
 const PortfolioAnalytics = dynamic(() => import('../components/PortfolioAnalytics'), { ssr: false });
 
@@ -21,6 +22,22 @@ type LiveQuote = {
 
 type ReturnsItem = {
   symbol: string; returnYTDPct: number | null; return1MPct: number | null;
+};
+
+type CoreFundItem = {
+  symbol: string;
+  revenueGrowthPct: number | null;
+  operatingMarginPct: number | null;
+  sector?: string | null;
+};
+
+type NewsItem = {
+  uuid: string;
+  title: string;
+  publisher: string;
+  link: string;
+  publishedAt: number;
+  relatedSymbol: string;
 };
 
 function fmt(value: number | null, format: string): string {
@@ -86,6 +103,31 @@ function SkeletonCard() {
   );
 }
 
+// Normalize abbreviated sector names from SECTOR_MAP to SECTOR_BENCHMARKS keys
+const SECTOR_NORM: Record<string, string> = {
+  'Comm. Services':    'Communication Services',
+  'Consumer Discret.': 'Consumer Discretionary',
+};
+function normSector(s: string | null | undefined): string {
+  if (!s) return '';
+  return SECTOR_NORM[s] ?? s;
+}
+
+function SectorCompCell({ value, benchmark }: { value: number | null; benchmark: number | undefined }) {
+  if (value == null) return <span className="text-[#c8cdd6] font-mono text-xs">—</span>;
+  const diff = benchmark != null ? value - benchmark : null;
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <span className="font-mono text-xs text-[#202e4a]">{(value * 100).toFixed(1)}%</span>
+      {diff != null && (
+        <span className={`text-[9px] font-mono leading-none ${diff > 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+          {diff > 0 ? '▲' : '▼'}{Math.abs(diff * 100).toFixed(1)}pp
+        </span>
+      )}
+    </div>
+  );
+}
+
 function SectionDivider({ title, right }: { title: string; right?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3">
@@ -103,6 +145,11 @@ export default function OverviewPage() {
   const [liveQuotes, setLiveQuotes] = useState<LiveQuote[]>([]);
   const [coreReturns, setCoreReturns] = useState<ReturnsItem[]>([]);
   const [core25Sort, setCore25Sort] = useState<{ key: 'day' | '1m' | 'ytd' | null; asc: boolean }>({ key: null, asc: false });
+  const [showSectorCols, setShowSectorCols] = useState(false);
+  const [coreFundamentals, setCoreFundamentals] = useState<CoreFundItem[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [newsLoading, setNewsLoading] = useState(true);
+  const [newsLastFetched, setNewsLastFetched] = useState<Date | null>(null);
 
   function handleCore25Sort(key: 'day' | '1m' | 'ytd') {
     setCore25Sort(prev => prev.key === key ? { key, asc: !prev.asc } : { key, asc: false });
@@ -160,17 +207,60 @@ export default function OverviewPage() {
     return () => { cancelled = true; };
   }, []);
 
+  // Fetch fundamentals for core 25 once (24h cache) — for sector comparison
+  useEffect(() => {
+    let cancelled = false;
+    const coreSyms = PORTFOLIO.filter(p => p.weight >= CORE_THRESHOLD).map(p => p.sym).join(',');
+    async function load() {
+      try {
+        const res = await fetch(`/api/fundamentals?symbols=${coreSyms}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled) setCoreFundamentals(json.data.map((d: any) => ({
+          symbol: d.symbol,
+          revenueGrowthPct: d.revenueGrowthPct,
+          operatingMarginPct: d.operatingMarginPct,
+        })));
+      } catch { /* non-fatal */ }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fetch news for top 8 core 25 positions (15m cache)
+  useEffect(() => {
+    let cancelled = false;
+    const topSyms = PORTFOLIO
+      .filter(p => p.weight >= CORE_THRESHOLD)
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, 8)
+      .map(p => p.sym)
+      .join(',');
+    async function load() {
+      try {
+        const res = await fetch(`/api/news?symbols=${topSyms}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled) { setNews(json.data); setNewsLoading(false); setNewsLastFetched(new Date()); }
+      } catch { if (!cancelled) setNewsLoading(false); }
+    }
+    load();
+    const id = setInterval(load, 15 * 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
   // Core 25 sorted rows
   const core25Items = PORTFOLIO.filter(p => p.weight >= CORE_THRESHOLD).map(p => {
     const q = liveQuotes.find(l => l.symbol === p.sym);
     const r = coreReturns.find(l => l.symbol === p.sym);
-    return { pos: p, q, r };
+    const f = coreFundamentals.find(c => c.symbol === p.sym);
+    return { pos: p, q, r, f };
   });
   const sortedCore25 = [...core25Items].sort((a, b) => {
     if (!core25Sort.key) return 0;
     let av: number | null | undefined;
     let bv: number | null | undefined;
-    if (core25Sort.key === 'day')  { av = a.q?.changePct;   bv = b.q?.changePct; }
+    if (core25Sort.key === 'day')  { av = a.q?.changePct;    bv = b.q?.changePct; }
     if (core25Sort.key === '1m')   { av = a.r?.return1MPct;  bv = b.r?.return1MPct; }
     if (core25Sort.key === 'ytd')  { av = a.r?.returnYTDPct; bv = b.r?.returnYTDPct; }
     if (av == null && bv == null) return 0;
@@ -284,7 +374,7 @@ export default function OverviewPage() {
                         <div className="w-2 h-2 rounded-full bg-emerald-500" />
                         <span className="text-[11px] font-bold text-emerald-400">Conviction (Green)</span>
                       </div>
-                      <p className="text-[10px] text-white/65 leading-relaxed">Thesis fully intact. Earnings meeting or beating estimates, revenue growth on or above plan, margins stable or expanding. Analyst consensus Buy or Strong Buy. No material headwinds. Position maintained or increased in last 13-F.</p>
+                <p className="text-[10px] text-white/65 leading-relaxed">Thesis fully intact. Earnings meeting or beating estimates, revenue growth on or above plan, margins stable or expanding. Analyst consensus Buy or Strong Buy. No material headwinds. Position maintained or increased in last 13-F.</p>
                     </div>
                     <div className="bg-white/5 rounded-lg p-3">
                       <div className="flex items-center gap-1.5 mb-1.5">
@@ -352,9 +442,21 @@ export default function OverviewPage() {
         {/* Core 25 Performance */}
         <section className="flex flex-col gap-3">
           <SectionDivider title="Core 25 Performance" right={
-            <Link href="/portfolio" className="text-[10px] text-[#007cba] hover:text-[#005a87] uppercase tracking-widest transition-colors">
-              Full Table →
-            </Link>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowSectorCols(v => !v)}
+                className={`text-[10px] font-semibold px-2.5 py-1 rounded border transition-colors whitespace-nowrap ${
+                  showSectorCols
+                    ? 'bg-[#007cba] text-white border-[#007cba]'
+                    : 'bg-white text-[#007cba] border-[#007cba] hover:bg-[#eef6fb]'
+                }`}
+              >
+                {showSectorCols ? 'Hide Sector Avg' : '≈ Sector Avg'}
+              </button>
+              <Link href="/portfolio" className="text-[10px] text-[#007cba] hover:text-[#005a87] uppercase tracking-widest transition-colors">
+                Full Table →
+              </Link>
+            </div>
           } />
           <div className="bg-white rounded-lg border border-[#d4d1c9] shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
@@ -370,11 +472,16 @@ export default function OverviewPage() {
                         {core25Sort.key === k ? (core25Sort.asc ? ' ↑' : ' ↓') : ' ↕'}
                       </th>
                     ))}
+                    {showSectorCols && <>
+                      <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-white/55 tracking-wide whitespace-nowrap">Rev Growth</th>
+                      <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-white/55 tracking-wide whitespace-nowrap">Op Margin</th>
+                    </>}
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedCore25.map(({ pos, q, r }, idx) => {
+                  {sortedCore25.map(({ pos, q, r, f }, idx) => {
                     const isEven = idx % 2 === 0;
+                    const sectorBench = SECTOR_BENCHMARKS[normSector(pos.sector)] ?? {};
                     return (
                       <tr key={pos.sym} className={`border-b transition-colors ${isEven ? 'bg-white border-b-[#eeece7] hover:bg-[#eef6fb]' : 'bg-[#faf9f6] border-b-[#eeece7] hover:bg-[#eef6fb]'}`}>
                         <td className="px-3 py-2">
@@ -413,6 +520,14 @@ export default function OverviewPage() {
                             </span>
                           ) : <span className="text-[#c8cdd6] font-mono text-xs">—</span>}
                         </td>
+                        {showSectorCols && <>
+                          <td className="px-3 py-2 text-right">
+                            <SectorCompCell value={f?.revenueGrowthPct ?? null} benchmark={sectorBench.revenueGrowthPct} />
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <SectorCompCell value={f?.operatingMarginPct ?? null} benchmark={sectorBench.operatingMarginPct} />
+                          </td>
+                        </>}
                       </tr>
                     );
                   })}
@@ -467,6 +582,68 @@ export default function OverviewPage() {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* Portfolio News */}
+        <section className="flex flex-col gap-3">
+          <SectionDivider title="Portfolio News · Core 25" right={
+            newsLastFetched ? (
+              <span className="text-[10px] text-[#8a96a8] font-mono">
+                Updated {newsLastFetched.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            ) : undefined
+          } />
+          {newsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-lg border border-[#e5e3dd] p-4 shadow-sm animate-pulse flex flex-col gap-2">
+                  <div className="h-2 w-12 rounded bg-[#e5e3dd]" />
+                  <div className="h-4 w-full rounded bg-[#e5e3dd]" />
+                  <div className="h-4 w-3/4 rounded bg-[#e5e3dd]" />
+                  <div className="h-2 w-24 rounded bg-[#e5e3dd]" />
+                </div>
+              ))}
+            </div>
+          ) : news.length === 0 ? (
+            <div className="bg-white rounded-lg border border-[#e5e3dd] px-5 py-8 shadow-sm text-center">
+              <p className="text-sm text-[#8a96a8]">No news available at this time.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {news.map(item => {
+                const ageMs = Date.now() - item.publishedAt;
+                const ageHrs = Math.floor(ageMs / 3_600_000);
+                const ageMins = Math.floor(ageMs / 60_000);
+                const ageStr = ageHrs >= 24
+                  ? `${Math.floor(ageHrs / 24)}d ago`
+                  : ageHrs >= 1
+                  ? `${ageHrs}h ago`
+                  : ageMins > 0
+                  ? `${ageMins}m ago`
+                  : 'Just now';
+                return (
+                  <a
+                    key={item.uuid}
+                    href={item.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-white rounded-lg border border-[#e5e3dd] px-4 py-3.5 shadow-sm flex flex-col gap-2 hover:border-[#007cba] hover:shadow-md transition-all group"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold font-mono text-white bg-[#007cba] px-1.5 py-0.5 rounded">
+                        {item.relatedSymbol}
+                      </span>
+                      <span className="text-[10px] text-[#8a96a8] font-mono ml-auto shrink-0">{ageStr}</span>
+                    </div>
+                    <p className="text-xs font-semibold text-[#202e4a] leading-snug group-hover:text-[#007cba] transition-colors line-clamp-3">
+                      {item.title}
+                    </p>
+                    <p className="text-[10px] text-[#8a96a8] mt-auto">{item.publisher} ↗</p>
+                  </a>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <footer className="pb-6 flex items-center justify-between">
