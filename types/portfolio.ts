@@ -87,6 +87,7 @@ export interface AnalystData {
   consensusRating: number | null;    // 1–5: 1=strong buy, 5=strong sell
   targetPrice: number | null;
   numberOfAnalysts: number | null;
+  analystActions: { date: string; firm: string; action: string; toGrade: string; fromGrade: string }[] | null;
 }
 
 export interface LeadershipOfficer {

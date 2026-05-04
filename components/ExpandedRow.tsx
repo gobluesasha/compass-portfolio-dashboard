@@ -120,56 +120,193 @@ function PriceChart({ data }: { data: SparkPoint[] }) {
   );
 }
 
+const ACTION_META: Record<string, { icon: string; color: string }> = {
+  up:   { icon: '↑', color: 'text-emerald-600' },
+  down: { icon: '↓', color: 'text-red-600'     },
+  init: { icon: '★', color: 'text-sky-600'     },
+  main: { icon: '→', color: 'text-[#8a96a8]'   },
+  reit: { icon: '→', color: 'text-[#8a96a8]'   },
+};
+
 // Analyst consensus: Yahoo rating 1=Strong Buy, 2=Buy, 3=Hold, 4=Sell, 5=Strong Sell
-function AnalystGauge({ rating, target, current, analysts }: {
+function AnalystGauge({ sym, rating, target, current, analysts, analystActions }: {
+  sym: string;
   rating: number | null;
   target: number | null;
   current: number | null;
   analysts: number | null;
+  analystActions: { date: string; firm: string; action: string; toGrade: string; fromGrade: string }[] | null;
 }) {
-  const labels = ['', 'Strong Buy', 'Buy', 'Hold', 'Sell', 'Strong Sell'];
-  const colors = ['', 'text-emerald-700', 'text-emerald-500', 'text-amber-500', 'text-red-500', 'text-red-700'];
+  const labels    = ['', 'Strong Buy', 'Buy', 'Hold', 'Sell', 'Strong Sell'];
+  const colors    = ['', 'text-emerald-700', 'text-emerald-500', 'text-amber-500', 'text-red-500', 'text-red-700'];
   const barColors = ['', 'bg-emerald-500', 'bg-emerald-400', 'bg-amber-400', 'bg-red-400', 'bg-red-600'];
-  const label = rating !== null ? (labels[Math.round(rating)] ?? 'Hold') : null;
-  const color = rating !== null ? (colors[Math.round(rating)] ?? 'text-amber-500') : 'text-[#c8cdd6]';
+  const label    = rating !== null ? (labels[Math.round(rating)] ?? 'Hold') : null;
+  const color    = rating !== null ? (colors[Math.round(rating)] ?? 'text-amber-500') : 'text-[#c8cdd6]';
   const barColor = rating !== null ? (barColors[Math.round(rating)] ?? 'bg-amber-400') : 'bg-[#e5e3dd]';
-  // Position bar fill: 1=full green side, 5=full red side. Invert scale for display.
-  const fillPct = rating !== null ? ((5 - rating) / 4) * 100 : 0;
-  const upside = (current && target) ? ((target - current) / current * 100) : null;
+  const fillPct  = rating !== null ? ((5 - rating) / 4) * 100 : 0;
+  const upside   = (current && target) ? ((target - current) / current * 100) : null;
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-end justify-between">
-        <div>
-          <p className="text-[10px] font-medium text-[#8a96a8] tracking-wide mb-0.5">Consensus</p>
-          <p className={`text-lg font-bold ${color}`}>{label ?? '—'}</p>
-          {analysts !== null && (
-            <p className="text-[10px] text-[#8a96a8]">{analysts} analysts</p>
-          )}
-        </div>
-        {target !== null && (
-          <div className="text-right">
-            <p className="text-[10px] font-medium text-[#8a96a8] tracking-wide mb-0.5">Avg Target</p>
-            <p className="text-lg font-mono font-bold text-[#202e4a]">${target.toFixed(2)}</p>
-            {upside !== null && (
-              <p className={`text-[11px] font-mono font-semibold ${upside >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                {upside >= 0 ? '+' : ''}{upside.toFixed(1)}% upside
-              </p>
+      <div className="flex items-start justify-between gap-4">
+        {/* Left: rating + bar */}
+        <div className="flex-1 flex flex-col gap-3">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-[10px] font-medium text-[#8a96a8] tracking-wide mb-0.5">Consensus</p>
+              <p className={`text-lg font-bold ${color}`}>{label ?? '—'}</p>
+              {analysts !== null && (
+                <p className="text-[10px] text-[#8a96a8]">{analysts} analysts</p>
+              )}
+            </div>
+            {target !== null && (
+              <div className="text-right">
+                <p className="text-[10px] font-medium text-[#8a96a8] tracking-wide mb-0.5">Avg Target</p>
+                <p className="text-lg font-mono font-bold text-[#202e4a]">${target.toFixed(2)}</p>
+                {upside !== null && (
+                  <p className={`text-[11px] font-mono font-semibold ${upside >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {upside >= 0 ? '+' : ''}{upside.toFixed(1)}% upside
+                  </p>
+                )}
+              </div>
             )}
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="w-full h-2 rounded-full bg-[#e5e3dd] overflow-hidden">
+              <div className={`h-full rounded-full ${barColor} transition-all duration-500`} style={{ width: `${fillPct}%` }} />
+            </div>
+            <div className="flex justify-between text-[9px] text-[#8a96a8]">
+              <span>Strong Buy</span><span>Hold</span><span>Strong Sell</span>
+            </div>
+          </div>
+          <a
+            href={`https://finance.yahoo.com/quote/${sym}/analysis`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            className="inline-flex items-center gap-1 text-[10px] text-[#007cba] hover:underline font-semibold w-fit"
+          >
+            View full analysis on Yahoo Finance ↗
+          </a>
+        </div>
+
+        {/* Right: recent analyst actions */}
+        {analystActions && analystActions.length > 0 && (
+          <div className="w-48 shrink-0">
+            <p className="text-[10px] font-medium text-[#8a96a8] tracking-wide mb-2">Recent Actions</p>
+            <div className="flex flex-col gap-2">
+              {analystActions.map((a, i) => {
+                const meta = ACTION_META[a.action] ?? { icon: '·', color: 'text-[#8a96a8]' };
+                const gradeChanged = a.fromGrade && a.fromGrade !== a.toGrade;
+                return (
+                  <div key={i} className="flex items-start gap-1.5">
+                    <span className={`text-[11px] font-bold shrink-0 mt-0.5 ${meta.color}`}>{meta.icon}</span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold text-[#202e4a] leading-tight truncate">{a.firm}</p>
+                      <p className="text-[9px] text-[#8a96a8] leading-tight">
+                        {a.toGrade || 'Rating update'}
+                        {gradeChanged && ` (from ${a.fromGrade})`}
+                        {' · '}{a.date}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
-      {/* Rating bar */}
-      <div className="flex flex-col gap-1">
-        <div className="w-full h-2 rounded-full bg-[#e5e3dd] overflow-hidden">
-          <div className={`h-full rounded-full ${barColor} transition-all duration-500`} style={{ width: `${fillPct}%` }} />
+    </div>
+  );
+}
+
+// Industry-level benchmarks by sector (approximate medians, decimal fractions)
+const SECTOR_BENCHMARKS: Record<string, Partial<Record<string, number>>> = {
+  'Technology': {
+    revenueGrowthPct: 0.12, grossMarginPct: 0.65, operatingMarginPct: 0.20,
+    netMarginPct: 0.18, returnOnEquity: 0.28, ebitdaMarginPct: 0.28, fcfMarginPct: 0.20, returnOnAssets: 0.10,
+  },
+  'Healthcare': {
+    revenueGrowthPct: 0.08, grossMarginPct: 0.55, operatingMarginPct: 0.15,
+    netMarginPct: 0.12, returnOnEquity: 0.20, ebitdaMarginPct: 0.20, fcfMarginPct: 0.15, returnOnAssets: 0.07,
+  },
+  'Industrials': {
+    revenueGrowthPct: 0.07, grossMarginPct: 0.35, operatingMarginPct: 0.12,
+    netMarginPct: 0.09, returnOnEquity: 0.18, ebitdaMarginPct: 0.15, fcfMarginPct: 0.10, returnOnAssets: 0.06,
+  },
+  'Financials': {
+    revenueGrowthPct: 0.06, grossMarginPct: 0.60, operatingMarginPct: 0.30,
+    netMarginPct: 0.25, returnOnEquity: 0.15, ebitdaMarginPct: 0.35, fcfMarginPct: 0.25, returnOnAssets: 0.08,
+  },
+  'Consumer Staples': {
+    revenueGrowthPct: 0.04, grossMarginPct: 0.35, operatingMarginPct: 0.14,
+    netMarginPct: 0.10, returnOnEquity: 0.25, ebitdaMarginPct: 0.18, fcfMarginPct: 0.12, returnOnAssets: 0.07,
+  },
+  'Communication Services': {
+    revenueGrowthPct: 0.09, grossMarginPct: 0.55, operatingMarginPct: 0.18,
+    netMarginPct: 0.15, returnOnEquity: 0.22, ebitdaMarginPct: 0.30, fcfMarginPct: 0.18, returnOnAssets: 0.09,
+  },
+  'Materials': {
+    revenueGrowthPct: 0.05, grossMarginPct: 0.28, operatingMarginPct: 0.12,
+    netMarginPct: 0.08, returnOnEquity: 0.15, ebitdaMarginPct: 0.18, fcfMarginPct: 0.10, returnOnAssets: 0.06,
+  },
+};
+
+// Fundamentals cell with sector benchmark hover tooltip
+function FundamentalCell({ label, value, metricKey, sector }: {
+  label: string;
+  value: string | null;
+  metricKey: string;
+  sector: string | null;
+}) {
+  const [show, setShow] = useState(false);
+  const benchmark = sector ? (SECTOR_BENCHMARKS[sector]?.[metricKey] ?? null) : null;
+
+  // Parse the formatted string back to a number for comparison (value is like "12.5%")
+  const numericValue = value ? parseFloat(value) / 100 : null;
+  const hasBenchmark = benchmark !== null && numericValue !== null;
+  const diff = hasBenchmark ? numericValue - benchmark : null;
+  const isAbove = diff !== null && diff > 0;
+  const diffPct = diff !== null ? Math.abs(diff * 100) : 0;
+
+  return (
+    <div
+      className="relative flex flex-col gap-0.5 min-w-0"
+      onMouseEnter={() => hasBenchmark && setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <span className="text-[10px] font-medium text-[#8a96a8] tracking-wide flex items-center gap-1">
+        {label}
+        {hasBenchmark && <span className="text-[8px] text-[#007cba] font-mono">≈</span>}
+      </span>
+      <span className={`text-sm font-mono font-semibold ${value === null ? 'text-[#c8cdd6]' : 'text-[#202e4a]'} ${hasBenchmark ? 'cursor-help underline decoration-dotted decoration-[#007cba]/40' : ''}`}>
+        {value ?? '—'}
+      </span>
+
+      {show && hasBenchmark && (
+        <div className="absolute bottom-full left-0 mb-2 z-50 bg-white border border-[#d4d1c9] rounded-lg shadow-lg p-3 w-52" style={{ pointerEvents: 'none' }}>
+          <p className="text-[10px] font-semibold text-[#007cba] uppercase tracking-wide mb-2">{label} · Sector Benchmark</p>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-[#8a96a8]">This holding</span>
+              <span className="text-[10px] font-mono font-semibold text-[#202e4a]">{value}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-[#8a96a8]">{sector} avg</span>
+              <span className="text-[10px] font-mono font-semibold text-[#8a96a8]">{(benchmark * 100).toFixed(1)}%</span>
+            </div>
+            <div className="w-full h-px bg-[#f2f1ec]" />
+            <div className="flex items-center justify-between">
+              <span className={`text-[10px] font-semibold ${isAbove ? 'text-emerald-600' : 'text-red-500'}`}>
+                {isAbove ? '▲ Above' : '▼ Below'} sector avg
+              </span>
+              <span className={`text-[10px] font-mono font-semibold ${isAbove ? 'text-emerald-600' : 'text-red-500'}`}>
+                {isAbove ? '+' : '-'}{diffPct.toFixed(1)} pp
+              </span>
+            </div>
+          </div>
         </div>
-        <div className="flex justify-between text-[9px] text-[#8a96a8]">
-          <span>Strong Buy</span>
-          <span>Hold</span>
-          <span>Strong Sell</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -519,10 +656,12 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
             <div className="md:col-span-2">
               <SectionHeader title="Analyst Consensus" />
               <AnalystGauge
+                sym={position.sym}
                 rating={analyst.consensusRating}
                 target={analyst.targetPrice}
                 current={market.price}
                 analysts={analyst.numberOfAnalysts}
+                analystActions={analyst.analystActions}
               />
             </div>
 
@@ -556,21 +695,21 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
 
               {gaapMode === 'gaap' ? (
                 <div className="grid grid-cols-2 gap-3">
-                  <StatCell label="Revenue Growth"   value={fmtPct(fundamentals.revenueGrowthPct, 1, true)} />
-                  <StatCell label="EPS Growth"        value={fmtPct(fundamentals.epsGrowthPct, 1, true)} />
-                  <StatCell label="Gross Margin"      value={fmtPct(fundamentals.grossMarginPct, 1, true)} />
-                  <StatCell label="Operating Margin"  value={fmtPct(fundamentals.operatingMarginPct, 1, true)} />
-                  <StatCell label="Net Margin"        value={fmtPct(fundamentals.netMarginPct, 1, true)} />
-                  <StatCell label="Return on Equity"  value={fmtPct(fundamentals.returnOnEquity, 1, true)} />
+                  <FundamentalCell label="Revenue Growth"  value={fmtPct(fundamentals.revenueGrowthPct, 1, true)}  metricKey="revenueGrowthPct"   sector={sector} />
+                  <StatCell        label="EPS Growth"      value={fmtPct(fundamentals.epsGrowthPct, 1, true)} />
+                  <FundamentalCell label="Gross Margin"    value={fmtPct(fundamentals.grossMarginPct, 1, true)}    metricKey="grossMarginPct"     sector={sector} />
+                  <FundamentalCell label="Operating Margin" value={fmtPct(fundamentals.operatingMarginPct, 1, true)} metricKey="operatingMarginPct" sector={sector} />
+                  <FundamentalCell label="Net Margin"      value={fmtPct(fundamentals.netMarginPct, 1, true)}      metricKey="netMarginPct"       sector={sector} />
+                  <FundamentalCell label="Return on Equity" value={fmtPct(fundamentals.returnOnEquity, 1, true)}   metricKey="returnOnEquity"     sector={sector} />
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  <StatCell label="Revenue Growth"    value={fmtPct(fundamentals.revenueGrowthPct, 1, true)} />
-                  <StatCell label="EBITDA Margin"     value={fmtPct(fundamentals.ebitdaMarginPct, 1, true)} />
-                  <StatCell label="FCF Margin"        value={fmtPct(fundamentals.fcfMarginPct, 1, true)} />
-                  <StatCell label="Op. CF Margin"     value={fmtPct(fundamentals.operatingCFMarginPct, 1, true)} />
-                  <StatCell label="Return on Assets"  value={fmtPct(fundamentals.returnOnAssets, 1, true)} />
-                  <StatCell label="Return on Equity"  value={fmtPct(fundamentals.returnOnEquity, 1, true)} />
+                  <FundamentalCell label="Revenue Growth"  value={fmtPct(fundamentals.revenueGrowthPct, 1, true)}  metricKey="revenueGrowthPct"   sector={sector} />
+                  <FundamentalCell label="EBITDA Margin"   value={fmtPct(fundamentals.ebitdaMarginPct, 1, true)}   metricKey="ebitdaMarginPct"    sector={sector} />
+                  <FundamentalCell label="FCF Margin"      value={fmtPct(fundamentals.fcfMarginPct, 1, true)}      metricKey="fcfMarginPct"       sector={sector} />
+                  <StatCell        label="Op. CF Margin"   value={fmtPct(fundamentals.operatingCFMarginPct, 1, true)} />
+                  <FundamentalCell label="Return on Assets" value={fmtPct(fundamentals.returnOnAssets, 1, true)}   metricKey="returnOnAssets"     sector={sector} />
+                  <FundamentalCell label="Return on Equity" value={fmtPct(fundamentals.returnOnEquity, 1, true)}   metricKey="returnOnEquity"     sector={sector} />
                 </div>
               )}
 

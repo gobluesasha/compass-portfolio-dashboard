@@ -58,6 +58,7 @@ type FundamentalsItem = {
   consensusRating: number | null;
   targetPrice: number | null;
   numberOfAnalysts: number | null;
+  analystActions: { date: string; firm: string; action: string; toGrade: string; fromGrade: string }[] | null;
   sector: string | null;
   industry: string | null;
   businessSummary: string | null;
@@ -160,6 +161,7 @@ function mergePositions(
         consensusRating:  f.consensusRating,
         targetPrice:      f.targetPrice,
         numberOfAnalysts: f.numberOfAnalysts,
+        analystActions:   f.analystActions ?? null,
       } : p.analyst,
       qualitative: f ? {
         ...p.qualitative,

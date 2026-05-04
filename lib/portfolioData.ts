@@ -176,7 +176,7 @@ const nullRisk = (): RiskMetrics => ({
 });
 
 const nullAnalyst = (): AnalystData => ({
-  consensusRating: null, targetPrice: null, numberOfAnalysts: null,
+  consensusRating: null, targetPrice: null, numberOfAnalysts: null, analystActions: null,
 });
 
 const nullQualitative = (): QualitativeData => ({
