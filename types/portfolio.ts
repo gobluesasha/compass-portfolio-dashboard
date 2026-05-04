@@ -42,10 +42,18 @@ export interface EarningsData {
 }
 
 export interface Fundamentals {
+  // GAAP
   revenueGrowthPct: number | null;   // trailing YoY revenue growth
-  epsGrowthPct: number | null;       // trailing YoY EPS growth
+  epsGrowthPct: number | null;       // trailing YoY EPS growth (GAAP)
   grossMarginPct: number | null;     // gross margin %
+  operatingMarginPct: number | null; // GAAP operating margin
+  netMarginPct: number | null;       // GAAP net profit margin
   returnOnEquity: number | null;     // ROE %
+  // Non-GAAP proxies
+  ebitdaMarginPct: number | null;    // EBITDA / revenue
+  fcfMarginPct: number | null;       // free cash flow / revenue
+  operatingCFMarginPct: number | null; // operating cash flow / revenue
+  returnOnAssets: number | null;     // ROA %
 }
 
 export interface Valuation {
@@ -71,6 +79,7 @@ export interface RiskMetrics {
   debtToEquity: number | null;
   return1MPct: number | null;
   return3MPct: number | null;
+  return6MPct: number | null;
   returnYTDPct: number | null;
 }
 

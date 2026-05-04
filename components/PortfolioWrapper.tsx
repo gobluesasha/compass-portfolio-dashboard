@@ -33,7 +33,13 @@ type FundamentalsItem = {
   revenueGrowthPct: number | null;
   epsGrowthPct: number | null;
   grossMarginPct: number | null;
+  operatingMarginPct: number | null;
+  netMarginPct: number | null;
   returnOnEquity: number | null;
+  ebitdaMarginPct: number | null;
+  fcfMarginPct: number | null;
+  operatingCFMarginPct: number | null;
+  returnOnAssets: number | null;
   pe: number | null;
   forwardPe: number | null;
   evEbitda: number | null;
@@ -64,6 +70,7 @@ type ReturnsItem = {
   symbol: string;
   return1MPct: number | null;
   return3MPct: number | null;
+  return6MPct: number | null;
   returnYTDPct: number | null;
   quarterlyReturnPct: number | null;
   maxDrawdownPct: number | null;
@@ -113,10 +120,16 @@ function mergePositions(
         nextEarningsDate: e?.nextEarningsDate ?? p.earnings.nextEarningsDate,
       },
       fundamentals: f ? {
-        revenueGrowthPct: f.revenueGrowthPct,
-        epsGrowthPct:     f.epsGrowthPct,
-        grossMarginPct:   f.grossMarginPct,
-        returnOnEquity:   f.returnOnEquity,
+        revenueGrowthPct:    f.revenueGrowthPct,
+        epsGrowthPct:        f.epsGrowthPct,
+        grossMarginPct:      f.grossMarginPct,
+        operatingMarginPct:  f.operatingMarginPct  ?? null,
+        netMarginPct:        f.netMarginPct        ?? null,
+        returnOnEquity:      f.returnOnEquity,
+        ebitdaMarginPct:     f.ebitdaMarginPct     ?? null,
+        fcfMarginPct:        f.fcfMarginPct        ?? null,
+        operatingCFMarginPct: f.operatingCFMarginPct ?? null,
+        returnOnAssets:      f.returnOnAssets      ?? null,
       } : p.fundamentals,
       valuation: {
         pe:              f?.pe              ?? p.valuation.pe,
@@ -140,6 +153,7 @@ function mergePositions(
         maxDrawdownPct: r?.maxDrawdownPct ?? p.risk.maxDrawdownPct,
         return1MPct:    r?.return1MPct   ?? p.risk.return1MPct,
         return3MPct:    r?.return3MPct   ?? p.risk.return3MPct,
+        return6MPct:    r?.return6MPct   ?? p.risk.return6MPct,
         returnYTDPct:   r?.returnYTDPct  ?? p.risk.returnYTDPct,
       },
       analyst: f ? {

@@ -5,11 +5,18 @@ export const dynamic = 'force-dynamic';
 
 export type FundamentalsItem = {
   symbol: string;
-  // Fundamentals
+  // Fundamentals — GAAP
   revenueGrowthPct: number | null;
   epsGrowthPct: number | null;
   grossMarginPct: number | null;
+  operatingMarginPct: number | null;
+  netMarginPct: number | null;
   returnOnEquity: number | null;
+  // Fundamentals — Non-GAAP proxies
+  ebitdaMarginPct: number | null;
+  fcfMarginPct: number | null;
+  operatingCFMarginPct: number | null;
+  returnOnAssets: number | null;
   // Valuation multiples
   pe: number | null;
   forwardPe: number | null;
@@ -37,6 +44,8 @@ export type FundamentalsItem = {
   industry: string | null;
   businessSummary: string | null;
   officers: { name: string; title: string }[] | null;
+  // Recent analyst actions (up/down/init/main/reit)
+  analystActions: { date: string; firm: string; action: string; toGrade: string; fromGrade: string }[] | null;
   error?: boolean;
 };
 
@@ -54,13 +63,14 @@ async function fetchOne(symbol: string): Promise<FundamentalsItem> {
 
   const empty: FundamentalsItem = {
     symbol, revenueGrowthPct: null, epsGrowthPct: null,
-    grossMarginPct: null, returnOnEquity: null,
+    grossMarginPct: null, operatingMarginPct: null, netMarginPct: null, returnOnEquity: null,
+    ebitdaMarginPct: null, fcfMarginPct: null, operatingCFMarginPct: null, returnOnAssets: null,
     pe: null, forwardPe: null, evEbitda: null, evRevenue: null,
     priceToSales: null, priceToBook: null, dividendYield: null, dividendRate: null, pegRatio: null,
     marketCap: null, enterpriseValue: null, totalRevenue: null, ebitda: null,
     beta: null, debtToEquity: null,
     consensusRating: null, targetPrice: null, numberOfAnalysts: null,
-    sector: null, industry: null, businessSummary: null, officers: null,
+    sector: null, industry: null, businessSummary: null, officers: null, analystActions: null,
   };
 
   if (ETF_SET.has(symbol)) {
@@ -71,21 +81,33 @@ async function fetchOne(symbol: string): Promise<FundamentalsItem> {
   try {
     const summary = await yahooFinance.quoteSummary(
       symbol,
-      { modules: ['financialData', 'defaultKeyStatistics', 'assetProfile', 'summaryDetail'] as any },
+      { modules: ['financialData', 'defaultKeyStatistics', 'assetProfile', 'summaryDetail', 'upgradeDowngradeHistory'] as any },
       { validateResult: false }
     );
 
-    const fd  = (summary as any)?.financialData        ?? {};
-    const ks  = (summary as any)?.defaultKeyStatistics  ?? {};
-    const ap  = (summary as any)?.assetProfile          ?? {};
-    const sd  = (summary as any)?.summaryDetail         ?? {};
+    const fd  = (summary as any)?.financialData           ?? {};
+    const ks  = (summary as any)?.defaultKeyStatistics    ?? {};
+    const ap  = (summary as any)?.assetProfile            ?? {};
+    const sd  = (summary as any)?.summaryDetail           ?? {};
+    const udh = (summary as any)?.upgradeDowngradeHistory?.history ?? [];
+
+    const totalRev = fd.totalRevenue ?? null;
+    const freeCF   = fd.freeCashflow ?? null;
+    const opCF     = fd.operatingCashflow ?? null;
+    const ebitdaVal = fd.ebitda ?? null;
 
     const item: FundamentalsItem = {
       symbol,
-      revenueGrowthPct:   fd.revenueGrowth                     ?? null,
-      epsGrowthPct:       fd.earningsGrowth                     ?? null,
-      grossMarginPct:     fd.grossMargins                       ?? null,
-      returnOnEquity:     fd.returnOnEquity                     ?? null,
+      revenueGrowthPct:    fd.revenueGrowth    ?? null,
+      epsGrowthPct:        fd.earningsGrowth   ?? null,
+      grossMarginPct:      fd.grossMargins     ?? null,
+      operatingMarginPct:  fd.operatingMargins ?? null,
+      netMarginPct:        fd.profitMargins    ?? null,
+      returnOnEquity:      fd.returnOnEquity   ?? null,
+      ebitdaMarginPct:     (ebitdaVal !== null && totalRev) ? ebitdaVal / totalRev : null,
+      fcfMarginPct:        (freeCF   !== null && totalRev) ? freeCF   / totalRev : null,
+      operatingCFMarginPct:(opCF     !== null && totalRev) ? opCF     / totalRev : null,
+      returnOnAssets:      fd.returnOnAssets  ?? null,
       pe:                 sd.trailingPE                         ?? null,
       forwardPe:          sd.forwardPE                          ?? null,
       evEbitda:           ks.enterpriseToEbitda                 ?? null,
@@ -113,6 +135,18 @@ async function fetchOne(symbol: string): Promise<FundamentalsItem> {
             name:  String(o.name  ?? ''),
             title: String(o.title ?? ''),
           }))
+        : null,
+      analystActions: Array.isArray(udh)
+        ? udh
+            .sort((a: any, b: any) => (b.epochGradeDate ?? 0) - (a.epochGradeDate ?? 0))
+            .slice(0, 5)
+            .map((h: any) => ({
+              date:      new Date((h.epochGradeDate ?? 0) * 1000).toISOString().slice(0, 10),
+              firm:      String(h.firm      ?? ''),
+              action:    String(h.action    ?? ''),
+              toGrade:   String(h.toGrade   ?? ''),
+              fromGrade: String(h.fromGrade ?? ''),
+            }))
         : null,
     };
 

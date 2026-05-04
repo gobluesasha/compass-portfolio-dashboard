@@ -355,6 +355,7 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
   const [peers, setPeers] = useState<PeerItem[] | null>(null);
   const [peersLoading, setPeersLoading] = useState(false);
   const [historicalVal, setHistoricalVal] = useState<HistoricalValYear[] | null>(null);
+  const [gaapMode, setGaapMode] = useState<'gaap' | 'non-gaap'>('gaap');
 
   const loadPeers = useCallback(() => {
     if (peers !== null) return;
@@ -479,9 +480,10 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
             {/* Performance */}
             <div>
               <SectionHeader title="Performance" />
-              <div className="flex gap-2">
-                <PerfBadge label="1M" value={risk.return1MPct} />
-                <PerfBadge label="3M" value={risk.return3MPct} />
+              <div className="flex gap-2 flex-wrap">
+                <PerfBadge label="1M"  value={risk.return1MPct} />
+                <PerfBadge label="3M"  value={risk.return3MPct} />
+                <PerfBadge label="6M"  value={risk.return6MPct} />
                 <PerfBadge label="YTD" value={risk.returnYTDPct} />
               </div>
             </div>
@@ -535,15 +537,43 @@ export default function ExpandedRow({ position, isOpen, timestamps }: Props) {
               </div>
             </div>
 
-            {/* Fundamentals */}
+            {/* Fundamentals with GAAP / Non-GAAP toggle */}
             <div>
-              <SectionHeader title="Fundamentals" />
-              <div className="grid grid-cols-2 gap-3">
-                <StatCell label="Revenue Growth" value={fmtPct(fundamentals.revenueGrowthPct, 1, true)} />
-                <StatCell label="EPS Growth" value={fmtPct(fundamentals.epsGrowthPct, 1, true)} />
-                <StatCell label="Gross Margin" value={fmtPct(fundamentals.grossMarginPct, 1, true)} />
-                <StatCell label="Return on Equity" value={fmtPct(fundamentals.returnOnEquity, 1, true)} />
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[11px] font-semibold text-[#007cba] tracking-wide">Fundamentals</span>
+                <div className="flex-1 h-px bg-[#e5e3dd]" />
+                <div className="flex rounded overflow-hidden border border-[#d4d1c9] text-[10px] font-semibold">
+                  <button
+                    onClick={e => { e.stopPropagation(); setGaapMode('gaap'); }}
+                    className={`px-2.5 py-1 transition-colors ${gaapMode === 'gaap' ? 'bg-[#202e4a] text-white' : 'bg-white text-[#8a96a8] hover:text-[#4a5e78]'}`}
+                  >GAAP</button>
+                  <button
+                    onClick={e => { e.stopPropagation(); setGaapMode('non-gaap'); }}
+                    className={`px-2.5 py-1 transition-colors border-l border-[#d4d1c9] ${gaapMode === 'non-gaap' ? 'bg-[#202e4a] text-white' : 'bg-white text-[#8a96a8] hover:text-[#4a5e78]'}`}
+                  >Non-GAAP</button>
+                </div>
               </div>
+
+              {gaapMode === 'gaap' ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <StatCell label="Revenue Growth"   value={fmtPct(fundamentals.revenueGrowthPct, 1, true)} />
+                  <StatCell label="EPS Growth"        value={fmtPct(fundamentals.epsGrowthPct, 1, true)} />
+                  <StatCell label="Gross Margin"      value={fmtPct(fundamentals.grossMarginPct, 1, true)} />
+                  <StatCell label="Operating Margin"  value={fmtPct(fundamentals.operatingMarginPct, 1, true)} />
+                  <StatCell label="Net Margin"        value={fmtPct(fundamentals.netMarginPct, 1, true)} />
+                  <StatCell label="Return on Equity"  value={fmtPct(fundamentals.returnOnEquity, 1, true)} />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <StatCell label="Revenue Growth"    value={fmtPct(fundamentals.revenueGrowthPct, 1, true)} />
+                  <StatCell label="EBITDA Margin"     value={fmtPct(fundamentals.ebitdaMarginPct, 1, true)} />
+                  <StatCell label="FCF Margin"        value={fmtPct(fundamentals.fcfMarginPct, 1, true)} />
+                  <StatCell label="Op. CF Margin"     value={fmtPct(fundamentals.operatingCFMarginPct, 1, true)} />
+                  <StatCell label="Return on Assets"  value={fmtPct(fundamentals.returnOnAssets, 1, true)} />
+                  <StatCell label="Return on Equity"  value={fmtPct(fundamentals.returnOnEquity, 1, true)} />
+                </div>
+              )}
+
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <StatCell label="Last Earnings" value={earnings.lastEarningsDate} />
                 <StatCell label="Next Earnings" value={earnings.nextEarningsDate} />

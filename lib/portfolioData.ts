@@ -158,7 +158,10 @@ const nullEarnings = (sym: string): EarningsData => ({
 
 const nullFundamentals = (): Fundamentals => ({
   revenueGrowthPct: null, epsGrowthPct: null,
-  grossMarginPct: null, returnOnEquity: null,
+  grossMarginPct: null, operatingMarginPct: null, netMarginPct: null,
+  returnOnEquity: null,
+  ebitdaMarginPct: null, fcfMarginPct: null, operatingCFMarginPct: null,
+  returnOnAssets: null,
 });
 
 const nullValuation = (): Valuation => ({
@@ -169,7 +172,7 @@ const nullValuation = (): Valuation => ({
 
 const nullRisk = (): RiskMetrics => ({
   beta: null, volatilityPct: null, maxDrawdownPct: null, debtToEquity: null,
-  return1MPct: null, return3MPct: null, returnYTDPct: null,
+  return1MPct: null, return3MPct: null, return6MPct: null, returnYTDPct: null,
 });
 
 const nullAnalyst = (): AnalystData => ({

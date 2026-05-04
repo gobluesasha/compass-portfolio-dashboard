@@ -9,6 +9,7 @@ export type ReturnsItem = {
   symbol: string;
   return1MPct: number | null;
   return3MPct: number | null;
+  return6MPct: number | null;
   returnYTDPct: number | null;
   quarterlyReturnPct: number | null;
   maxDrawdownPct: number | null;
@@ -45,8 +46,8 @@ async function fetchOne(symbol: string): Promise<ReturnsItem> {
   if (cached && cached.expires > Date.now()) return cached.item;
 
   const empty: ReturnsItem = {
-    symbol, return1MPct: null, return3MPct: null, returnYTDPct: null,
-    quarterlyReturnPct: null, maxDrawdownPct: null, sparkline: null,
+    symbol, return1MPct: null, return3MPct: null, return6MPct: null,
+    returnYTDPct: null, quarterlyReturnPct: null, maxDrawdownPct: null, sparkline: null,
   };
 
   try {
@@ -97,6 +98,7 @@ async function fetchOne(symbol: string): Promise<ReturnsItem> {
       symbol,
       return1MPct:        computeReturn(closes, 21),
       return3MPct:        computeReturn(closes, 63),
+      return6MPct:        computeReturn(closes, 126),
       returnYTDPct,
       quarterlyReturnPct: computeReturn(closes, 63),
       maxDrawdownPct:     computeMaxDrawdown(closes),

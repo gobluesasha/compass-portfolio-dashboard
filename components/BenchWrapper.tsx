@@ -22,6 +22,20 @@ type FundamentalsItem = {
   symbol: string;
   forwardPe: number | null;
   beta: number | null;
+  pe: number | null;
+  evEbitda: number | null;
+  priceToSales: number | null;
+  marketCap: number | null;
+  revenueGrowthPct: number | null;
+  grossMarginPct: number | null;
+  operatingMarginPct: number | null;
+  returnOnEquity: number | null;
+  consensusRating: number | null;
+  targetPrice: number | null;
+  numberOfAnalysts: number | null;
+  businessSummary: string | null;
+  industry: string | null;
+  analystActions: { date: string; firm: string; action: string; toGrade: string; fromGrade: string }[] | null;
 };
 
 export default function BenchWrapper() {
@@ -46,13 +60,27 @@ export default function BenchWrapper() {
       const r = rMap.get(c.sym);
       const f = fMap.get(c.sym);
       return {
-        symbol:      c.sym,
-        price:       q?.price ?? null,
-        dayChangePct: q?.changePct ?? null,
-        return1MPct:  r?.return1MPct ?? null,
-        returnYTDPct: r?.returnYTDPct ?? null,
-        forwardPe:   f?.forwardPe ?? q?.forwardPe ?? null,
-        beta:        f?.beta ?? null,
+        symbol:             c.sym,
+        price:              q?.price        ?? null,
+        dayChangePct:       q?.changePct    ?? null,
+        return1MPct:        r?.return1MPct  ?? null,
+        returnYTDPct:       r?.returnYTDPct ?? null,
+        forwardPe:          f?.forwardPe    ?? q?.forwardPe ?? null,
+        beta:               f?.beta         ?? null,
+        pe:                 f?.pe           ?? null,
+        evEbitda:           f?.evEbitda     ?? null,
+        priceToSales:       f?.priceToSales ?? null,
+        marketCap:          f?.marketCap    ?? null,
+        revenueGrowthPct:   f?.revenueGrowthPct   ?? null,
+        grossMarginPct:     f?.grossMarginPct      ?? null,
+        operatingMarginPct: f?.operatingMarginPct  ?? null,
+        returnOnEquity:     f?.returnOnEquity      ?? null,
+        consensusRating:    f?.consensusRating     ?? null,
+        targetPrice:        f?.targetPrice         ?? null,
+        numberOfAnalysts:   f?.numberOfAnalysts    ?? null,
+        businessSummary:    f?.businessSummary     ?? null,
+        industry:           f?.industry            ?? null,
+        analystActions:     f?.analystActions      ?? null,
       };
     });
   }

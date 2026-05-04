@@ -102,6 +102,11 @@ export default function OverviewPage() {
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
   const [liveQuotes, setLiveQuotes] = useState<LiveQuote[]>([]);
   const [coreReturns, setCoreReturns] = useState<ReturnsItem[]>([]);
+  const [core25Sort, setCore25Sort] = useState<{ key: 'day' | '1m' | 'ytd' | null; asc: boolean }>({ key: null, asc: false });
+
+  function handleCore25Sort(key: 'day' | '1m' | 'ytd') {
+    setCore25Sort(prev => prev.key === key ? { key, asc: !prev.asc } : { key, asc: false });
+  }
 
   const loadBenchmarks = useCallback(async () => {
     setBenchState('loading');
@@ -154,6 +159,25 @@ export default function OverviewPage() {
     load();
     return () => { cancelled = true; };
   }, []);
+
+  // Core 25 sorted rows
+  const core25Items = PORTFOLIO.filter(p => p.weight >= CORE_THRESHOLD).map(p => {
+    const q = liveQuotes.find(l => l.symbol === p.sym);
+    const r = coreReturns.find(l => l.symbol === p.sym);
+    return { pos: p, q, r };
+  });
+  const sortedCore25 = [...core25Items].sort((a, b) => {
+    if (!core25Sort.key) return 0;
+    let av: number | null | undefined;
+    let bv: number | null | undefined;
+    if (core25Sort.key === 'day')  { av = a.q?.changePct;   bv = b.q?.changePct; }
+    if (core25Sort.key === '1m')   { av = a.r?.return1MPct;  bv = b.r?.return1MPct; }
+    if (core25Sort.key === 'ytd')  { av = a.r?.returnYTDPct; bv = b.r?.returnYTDPct; }
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return core25Sort.asc ? av - bv : bv - av;
+  });
 
   // Movers
   const moversData = PORTFOLIO
@@ -247,7 +271,39 @@ export default function OverviewPage() {
 
           {/* Signal mix legend */}
           <div className="bg-white rounded-lg border border-[#e5e3dd] px-5 py-4 shadow-sm">
-            <p className="text-[12px] font-semibold text-[#202e4a] mb-3">Signal Mix — Internal CCM Conviction Rating</p>
+            <div className="flex items-center gap-2 mb-3">
+              <p className="text-[12px] font-semibold text-[#202e4a]">Signal Mix — Internal CCM Conviction Rating</p>
+              <div className="relative group/tooltip">
+                <button className="w-4 h-4 rounded-full bg-[#e5e3dd] text-[#8a96a8] text-[9px] font-bold flex items-center justify-center hover:bg-[#007cba] hover:text-white transition-colors shrink-0">?</button>
+                <div className="absolute left-0 top-full mt-1.5 z-50 w-[340px] bg-[#1a2537] text-white rounded-xl shadow-2xl border border-white/10 p-4 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity duration-150">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-3">How Signals Are Determined</p>
+                  <p className="text-[10px] text-white/60 leading-relaxed mb-3">Ratings are assigned by CCM portfolio managers based on a multi-factor qualitative and quantitative review, updated quarterly or upon material events.</p>
+                  <div className="flex flex-col gap-3">
+                    <div className="bg-white/5 rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="text-[11px] font-bold text-emerald-400">Conviction (Green)</span>
+                      </div>
+                      <p className="text-[10px] text-white/65 leading-relaxed">Thesis fully intact. Earnings meeting or beating estimates, revenue growth on or above plan, margins stable or expanding. Analyst consensus Buy or Strong Buy. No material headwinds. Position maintained or increased in last 13-F.</p>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <div className="w-2 h-2 rounded-full bg-amber-400" />
+                        <span className="text-[11px] font-bold text-amber-400">Monitor (Yellow)</span>
+                      </div>
+                      <p className="text-[10px] text-white/65 leading-relaxed">Mixed or evolving signals. One or more criteria triggered: recent earnings miss, decelerating growth, margin pressure, position trimmed, near-term sector or macro headwinds. Thesis under active review.</p>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <div className="w-2 h-2 rounded-full bg-red-500" />
+                        <span className="text-[11px] font-bold text-red-400">Concern (Red)</span>
+                      </div>
+                      <p className="text-[10px] text-white/65 leading-relaxed">Core thesis deteriorating. Consecutive earnings misses, significant revenue shortfall, sustained margin compression, analyst consensus downgrade to Hold or Sell, or material competitive or regulatory risk. Exit being actively evaluated.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div className="flex h-3 rounded-full overflow-hidden gap-px mb-3">
               <Link href="/portfolio?signal=green" className="bg-emerald-500 hover:brightness-110 transition-all cursor-pointer" style={{ width: `${(PORTFOLIO_STATS.greenCount / PORTFOLIO_STATS.totalPositions) * 100}%` }} title={`View ${PORTFOLIO_STATS.greenCount} Conviction positions`} />
               <Link href="/portfolio?signal=yellow" className="bg-amber-400 hover:brightness-110 transition-all cursor-pointer" style={{ width: `${(PORTFOLIO_STATS.yellowCount / PORTFOLIO_STATS.totalPositions) * 100}%` }} title={`View ${PORTFOLIO_STATS.yellowCount} Monitor positions`} />
@@ -308,15 +364,16 @@ export default function OverviewPage() {
                     <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-white/55 tracking-wide w-[80px]">Ticker</th>
                     <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-white/55 tracking-wide min-w-[160px]">Company</th>
                     <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-white/55 tracking-wide">Price</th>
-                    <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-white/55 tracking-wide">Day %</th>
-                    <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-white/55 tracking-wide">1M Rtn</th>
-                    <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-white/55 tracking-wide">YTD</th>
+                    {(['day', '1m', 'ytd'] as const).map(k => (
+                      <th key={k} onClick={() => handleCore25Sort(k)} className="px-3 py-2.5 text-right text-[11px] font-semibold tracking-wide cursor-pointer select-none hover:text-white text-white/55 whitespace-nowrap">
+                        {k === 'day' ? 'Day %' : k === '1m' ? '1M Rtn' : 'YTD'}
+                        {core25Sort.key === k ? (core25Sort.asc ? ' ↑' : ' ↓') : ' ↕'}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {PORTFOLIO.filter(p => p.weight >= CORE_THRESHOLD).map((pos, idx) => {
-                    const q = liveQuotes.find(l => l.symbol === pos.sym);
-                    const r = coreReturns.find(l => l.symbol === pos.sym);
+                  {sortedCore25.map(({ pos, q, r }, idx) => {
                     const isEven = idx % 2 === 0;
                     return (
                       <tr key={pos.sym} className={`border-b transition-colors ${isEven ? 'bg-white border-b-[#eeece7] hover:bg-[#eef6fb]' : 'bg-[#faf9f6] border-b-[#eeece7] hover:bg-[#eef6fb]'}`}>
