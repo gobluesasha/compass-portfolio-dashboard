@@ -18,6 +18,7 @@ type SummaryState =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'done'; bullets: string[]; sentiment: 'positive' | 'neutral' | 'negative' | 'mixed'; generatedAt: number }
+  | { status: 'no_key' }
   | { status: 'error' };
 
 const SENTIMENT_META = {
@@ -66,21 +67,21 @@ function NewsCard({ item }: { item: NewsItem }) {
   );
 }
 
-function AISummaryCard({ sym, news, apiReady }: { sym: string; news: NewsItem[]; apiReady: boolean }) {
+function AISummaryCard({ sym, news }: { sym: string; news: NewsItem[] }) {
   const [state, setState] = useState<SummaryState>({ status: 'idle' });
-  const prevSym = useRef<string>('');
+  const fetchedFor = useRef<string>('');
 
-  // Reset state and prevSym when holding changes so re-selecting triggers a fresh fetch
   useEffect(() => {
-    prevSym.current = '';
+    // Reset when sym changes
     setState({ status: 'idle' });
+    fetchedFor.current = '';
   }, [sym]);
 
   useEffect(() => {
     const headlines = news.filter(n => n.relatedSymbol === sym).map(n => n.title);
-    if (!apiReady || headlines.length === 0) { setState({ status: 'idle' }); return; }
-    if (sym === prevSym.current) return; // de-dupe only after all checks pass
-    prevSym.current = sym;
+    if (headlines.length === 0) return; // wait for news to load
+    if (fetchedFor.current === sym) return; // already fetched for this sym
+    fetchedFor.current = sym;
 
     let cancelled = false;
     setState({ status: 'loading' });
@@ -92,19 +93,20 @@ function AISummaryCard({ sym, news, apiReady }: { sym: string; news: NewsItem[];
       .then(r => r.json())
       .then(json => {
         if (cancelled) return;
-        if (json.data) setState({ status: 'done', bullets: json.data.bullets, sentiment: json.data.sentiment, generatedAt: json.data.generatedAt });
+        if (json.error === 'ANTHROPIC_API_KEY not configured') setState({ status: 'no_key' });
+        else if (json.data) setState({ status: 'done', bullets: json.data.bullets, sentiment: json.data.sentiment, generatedAt: json.data.generatedAt });
         else setState({ status: 'error' });
       })
       .catch(() => { if (!cancelled) setState({ status: 'error' }); });
     return () => { cancelled = true; };
-  }, [sym, news, apiReady]);
+  }, [sym, news]);
 
-  if (!apiReady) return (
+  if (state.status === 'no_key') return (
     <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex items-center gap-3">
       <span className="text-amber-500 text-base">⚠</span>
       <div>
         <p className="text-xs font-semibold text-amber-800">AI Summaries Unavailable</p>
-        <p className="text-[11px] text-amber-700 mt-0.5">Add <code className="font-mono bg-amber-100 px-1 rounded">ANTHROPIC_API_KEY</code> to your environment variables to enable per-holding analysis.</p>
+        <p className="text-[11px] text-amber-700 mt-0.5">Add <code className="font-mono bg-amber-100 px-1 rounded">ANTHROPIC_API_KEY</code> to Vercel environment variables and redeploy.</p>
       </div>
     </div>
   );
@@ -168,19 +170,6 @@ export default function NewsPage() {
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
   const [selectedSym, setSelectedSym] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'recent' | 'holding'>('recent');
-  const [apiReady, setApiReady] = useState(false);
-
-  // Check if AI is available
-  useEffect(() => {
-    fetch('/api/news-summary', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol: '__probe__', headlines: [] }),
-    })
-      .then(r => r.json())
-      .then(j => { if (j.error !== 'ANTHROPIC_API_KEY not configured') setApiReady(true); })
-      .catch(() => {});
-  }, []);
 
   const load = useCallback(async () => {
     const syms = CORE_POSITIONS.map(p => p.sym).join(',');
@@ -289,7 +278,7 @@ export default function NewsPage() {
 
         {/* AI Summary (shown when a specific holding is selected) */}
         {selectedSym !== 'ALL' && (
-          <AISummaryCard sym={selectedSym} news={news} apiReady={apiReady} />
+          <AISummaryCard sym={selectedSym} news={news} />
         )}
 
         {/* News grid / grouped list */}
