@@ -16,17 +16,20 @@ const cache = new Map<string, { items: NewsItem[]; expires: number }>();
 const TTL = 15 * 60 * 1000; // 15 minutes
 
 export async function GET(req: NextRequest) {
-  const raw = req.nextUrl.searchParams.get('symbols') ?? '';
-  const symbols = raw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 10);
+  const raw     = req.nextUrl.searchParams.get('symbols') ?? '';
+  const limitPx = parseInt(req.nextUrl.searchParams.get('limit') ?? '30', 10);
+  const perSym  = parseInt(req.nextUrl.searchParams.get('perSym') ?? '5', 10);
+  const maxSym  = 15;
 
+  const symbols = raw.split(',').map(s => s.trim()).filter(Boolean).slice(0, maxSym);
   if (!symbols.length) {
     return NextResponse.json({ error: 'No symbols' }, { status: 400 });
   }
 
-  const cacheKey = symbols.slice(0, 10).join(',');
+  const cacheKey = `${symbols.join(',')}_${perSym}`;
   const cached = cache.get(cacheKey);
   if (cached && cached.expires > Date.now()) {
-    return NextResponse.json({ data: cached.items, timestamp: Date.now() });
+    return NextResponse.json({ data: cached.items.slice(0, limitPx), timestamp: Date.now() });
   }
 
   const allNews: NewsItem[] = [];
@@ -36,7 +39,7 @@ export async function GET(req: NextRequest) {
     try {
       const result = await (yahooFinance as any).search(
         symbol,
-        { newsCount: 4, quotesCount: 0 },
+        { newsCount: Math.min(perSym, 8), quotesCount: 0 },
         { validateResult: false }
       );
       const news: any[] = result?.news ?? [];
@@ -58,8 +61,6 @@ export async function GET(req: NextRequest) {
   }
 
   allNews.sort((a, b) => b.publishedAt - a.publishedAt);
-  const items = allNews.slice(0, 15);
-
-  cache.set(cacheKey, { items, expires: Date.now() + TTL });
-  return NextResponse.json({ data: items, timestamp: Date.now() });
+  cache.set(cacheKey, { items: allNews, expires: Date.now() + TTL });
+  return NextResponse.json({ data: allNews.slice(0, limitPx), timestamp: Date.now() });
 }

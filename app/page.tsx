@@ -31,14 +31,6 @@ type CoreFundItem = {
   sector?: string | null;
 };
 
-type NewsItem = {
-  uuid: string;
-  title: string;
-  publisher: string;
-  link: string;
-  publishedAt: number;
-  relatedSymbol: string;
-};
 
 function fmt(value: number | null, format: string): string {
   if (value === null) return '—';
@@ -147,9 +139,6 @@ export default function OverviewPage() {
   const [core25Sort, setCore25Sort] = useState<{ key: 'day' | '1m' | 'ytd' | null; asc: boolean }>({ key: null, asc: false });
   const [showSectorCols, setShowSectorCols] = useState(false);
   const [coreFundamentals, setCoreFundamentals] = useState<CoreFundItem[]>([]);
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [newsLoading, setNewsLoading] = useState(true);
-  const [newsLastFetched, setNewsLastFetched] = useState<Date | null>(null);
 
   function handleCore25Sort(key: 'day' | '1m' | 'ytd') {
     setCore25Sort(prev => prev.key === key ? { key, asc: !prev.asc } : { key, asc: false });
@@ -227,27 +216,6 @@ export default function OverviewPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Fetch news for top 8 core 25 positions (15m cache)
-  useEffect(() => {
-    let cancelled = false;
-    const topSyms = PORTFOLIO
-      .filter(p => p.weight >= CORE_THRESHOLD)
-      .sort((a, b) => b.weight - a.weight)
-      .slice(0, 8)
-      .map(p => p.sym)
-      .join(',');
-    async function load() {
-      try {
-        const res = await fetch(`/api/news?symbols=${topSyms}`);
-        if (!res.ok) return;
-        const json = await res.json();
-        if (!cancelled) { setNews(json.data); setNewsLoading(false); setNewsLastFetched(new Date()); }
-      } catch { if (!cancelled) setNewsLoading(false); }
-    }
-    load();
-    const id = setInterval(load, 15 * 60_000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, []);
 
   // Core 25 sorted rows
   const core25Items = PORTFOLIO.filter(p => p.weight >= CORE_THRESHOLD).map(p => {
@@ -582,68 +550,6 @@ export default function OverviewPage() {
               </div>
             </div>
           </div>
-        </section>
-
-        {/* Portfolio News */}
-        <section className="flex flex-col gap-3">
-          <SectionDivider title="Portfolio News · Core 25" right={
-            newsLastFetched ? (
-              <span className="text-[10px] text-[#8a96a8] font-mono">
-                Updated {newsLastFetched.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            ) : undefined
-          } />
-          {newsLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-lg border border-[#e5e3dd] p-4 shadow-sm animate-pulse flex flex-col gap-2">
-                  <div className="h-2 w-12 rounded bg-[#e5e3dd]" />
-                  <div className="h-4 w-full rounded bg-[#e5e3dd]" />
-                  <div className="h-4 w-3/4 rounded bg-[#e5e3dd]" />
-                  <div className="h-2 w-24 rounded bg-[#e5e3dd]" />
-                </div>
-              ))}
-            </div>
-          ) : news.length === 0 ? (
-            <div className="bg-white rounded-lg border border-[#e5e3dd] px-5 py-8 shadow-sm text-center">
-              <p className="text-sm text-[#8a96a8]">No news available at this time.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {news.map(item => {
-                const ageMs = Date.now() - item.publishedAt;
-                const ageHrs = Math.floor(ageMs / 3_600_000);
-                const ageMins = Math.floor(ageMs / 60_000);
-                const ageStr = ageHrs >= 24
-                  ? `${Math.floor(ageHrs / 24)}d ago`
-                  : ageHrs >= 1
-                  ? `${ageHrs}h ago`
-                  : ageMins > 0
-                  ? `${ageMins}m ago`
-                  : 'Just now';
-                return (
-                  <a
-                    key={item.uuid}
-                    href={item.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-white rounded-lg border border-[#e5e3dd] px-4 py-3.5 shadow-sm flex flex-col gap-2 hover:border-[#007cba] hover:shadow-md transition-all group"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold font-mono text-white bg-[#007cba] px-1.5 py-0.5 rounded">
-                        {item.relatedSymbol}
-                      </span>
-                      <span className="text-[10px] text-[#8a96a8] font-mono ml-auto shrink-0">{ageStr}</span>
-                    </div>
-                    <p className="text-xs font-semibold text-[#202e4a] leading-snug group-hover:text-[#007cba] transition-colors line-clamp-3">
-                      {item.title}
-                    </p>
-                    <p className="text-[10px] text-[#8a96a8] mt-auto">{item.publisher} ↗</p>
-                  </a>
-                );
-              })}
-            </div>
-          )}
         </section>
 
         <footer className="pb-6 flex items-center justify-between">

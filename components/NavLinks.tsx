@@ -7,6 +7,7 @@ export default function NavLinks() {
   const pathname = usePathname();
   const isOverview   = pathname === '/';
   const isPortfolio  = pathname === '/portfolio' || pathname.startsWith('/portfolio');
+  const isNews       = pathname === '/news' || pathname.startsWith('/news');
 
   return (
     <nav className="flex items-center gap-1 bg-white/8 rounded-lg p-1 border border-white/10">
@@ -41,6 +42,22 @@ export default function NavLinks() {
           <path d="M1 9 L7.5 5 L12.5 2" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" />
         </svg>
         Portfolio
+      </Link>
+      <Link
+        href="/news"
+        className={`flex items-center gap-2 px-4 py-2 rounded-md text-[13px] font-semibold transition-all duration-150 ${
+          isNews
+            ? 'bg-white text-[#202e4a] shadow-sm'
+            : 'text-white/60 hover:text-white hover:bg-white/10'
+        }`}
+      >
+        <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 shrink-0" fill="currentColor">
+          <rect x="1" y="2" width="14" height="2" rx="1" />
+          <rect x="1" y="6" width="9" height="1.5" rx="0.75" opacity="0.6" />
+          <rect x="1" y="9" width="11" height="1.5" rx="0.75" opacity="0.6" />
+          <rect x="1" y="12" width="7" height="1.5" rx="0.75" opacity="0.4" />
+        </svg>
+        News
       </Link>
     </nav>
   );
