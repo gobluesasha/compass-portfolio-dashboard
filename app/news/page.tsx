@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PORTFOLIO } from '../../lib/portfolioData';
 
 const CORE_THRESHOLD = 0.027;
@@ -12,20 +12,6 @@ type NewsItem = {
   link: string;
   publishedAt: number;
   relatedSymbol: string;
-};
-
-type SummaryState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'done'; bullets: string[]; sentiment: 'positive' | 'neutral' | 'negative' | 'mixed'; generatedAt: number }
-  | { status: 'no_key' }
-  | { status: 'error' };
-
-const SENTIMENT_META = {
-  positive: { label: 'Positive', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', dot: 'bg-emerald-500' },
-  neutral:  { label: 'Neutral',  color: 'text-[#8a96a8]',  bg: 'bg-[#f8f7f3]', border: 'border-[#d4d1c9]',  dot: 'bg-[#8a96a8]' },
-  negative: { label: 'Negative', color: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-200',    dot: 'bg-red-500' },
-  mixed:    { label: 'Mixed',    color: 'text-amber-600',  bg: 'bg-amber-50',  border: 'border-amber-200',  dot: 'bg-amber-400' },
 };
 
 const CORE_POSITIONS = PORTFOLIO
@@ -67,103 +53,6 @@ function NewsCard({ item }: { item: NewsItem }) {
   );
 }
 
-function AISummaryCard({ sym, news }: { sym: string; news: NewsItem[] }) {
-  const [state, setState] = useState<SummaryState>({ status: 'idle' });
-  const fetchedFor = useRef<string>('');
-
-  useEffect(() => {
-    // Reset when sym changes
-    setState({ status: 'idle' });
-    fetchedFor.current = '';
-  }, [sym]);
-
-  useEffect(() => {
-    const headlines = news.filter(n => n.relatedSymbol === sym).map(n => n.title);
-    if (headlines.length === 0) return; // wait for news to load
-    if (fetchedFor.current === sym) return; // already fetched for this sym
-    fetchedFor.current = sym;
-
-    let cancelled = false;
-    setState({ status: 'loading' });
-    fetch('/api/news-summary', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol: sym, headlines }),
-    })
-      .then(r => r.json())
-      .then(json => {
-        if (cancelled) return;
-        if (json.error === 'ANTHROPIC_API_KEY not configured') setState({ status: 'no_key' });
-        else if (json.data) setState({ status: 'done', bullets: json.data.bullets, sentiment: json.data.sentiment, generatedAt: json.data.generatedAt });
-        else setState({ status: 'error' });
-      })
-      .catch(() => { if (!cancelled) setState({ status: 'error' }); });
-    return () => { cancelled = true; };
-  }, [sym, news]);
-
-  if (state.status === 'no_key') return (
-    <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex items-center gap-3">
-      <span className="text-amber-500 text-base">⚠</span>
-      <div>
-        <p className="text-xs font-semibold text-amber-800">AI Summaries Unavailable</p>
-        <p className="text-[11px] text-amber-700 mt-0.5">Add <code className="font-mono bg-amber-100 px-1 rounded">ANTHROPIC_API_KEY</code> to Vercel environment variables and redeploy.</p>
-      </div>
-    </div>
-  );
-
-  if (state.status === 'idle') return null;
-
-  if (state.status === 'loading') return (
-    <div className="bg-white rounded-xl border border-[#e5e3dd] px-5 py-4 shadow-sm animate-pulse">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-4 h-4 rounded bg-[#e5e3dd]" />
-        <div className="h-3 w-32 rounded bg-[#e5e3dd]" />
-        <div className="h-2.5 w-16 rounded bg-[#e5e3dd] ml-auto" />
-      </div>
-      <div className="flex flex-col gap-2">
-        <div className="h-3 w-full rounded bg-[#e5e3dd]" />
-        <div className="h-3 w-5/6 rounded bg-[#e5e3dd]" />
-        <div className="h-3 w-4/6 rounded bg-[#e5e3dd]" />
-      </div>
-    </div>
-  );
-
-  if (state.status === 'error') return (
-    <div className="bg-[#f8f7f3] border border-[#d4d1c9] rounded-xl px-5 py-3 text-[11px] text-[#8a96a8]">
-      Summary unavailable for {sym} — try again shortly.
-    </div>
-  );
-
-  const meta = SENTIMENT_META[state.sentiment];
-  return (
-    <div className={`rounded-xl border ${meta.border} ${meta.bg} px-5 py-4`}>
-      <div className="flex items-center gap-2 mb-3">
-        <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 text-[#202e4a] shrink-0" fill="currentColor">
-          <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 2a5 5 0 110 10A5 5 0 018 3zm-.5 2v4l3.5 2-.5-.866-2.5-1.434V5H7.5z" opacity=".4"/>
-          <circle cx="8" cy="8" r="2.5" />
-          <path d="M11.5 3.5l1-1M4.5 3.5l-1-1M8 1.5V.5" stroke="currentColor" strokeWidth=".8" strokeLinecap="round" opacity=".5"/>
-        </svg>
-        <span className="text-[11px] font-bold text-[#202e4a] uppercase tracking-widest">AI Summary · {sym}</span>
-        <div className={`ml-auto flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${meta.border}`}>
-          <div className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
-          <span className={`text-[9px] font-bold uppercase tracking-wider ${meta.color}`}>{meta.label}</span>
-        </div>
-      </div>
-      <ul className="flex flex-col gap-2">
-        {state.bullets.map((b, i) => (
-          <li key={i} className="flex items-start gap-2">
-            <span className="text-[#007cba] font-bold text-[11px] mt-0.5 shrink-0">{i + 1}.</span>
-            <span className="text-[12px] text-[#202e4a] leading-relaxed">{b}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="text-[9px] text-[#a8a49e] mt-3 text-right">
-        Powered by Claude · {new Date(state.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-      </p>
-    </div>
-  );
-}
-
 export default function NewsPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -190,16 +79,12 @@ export default function NewsPage() {
     return () => clearInterval(id);
   }, [load]);
 
-  // Symbols that actually have news (in weight order)
   const symsWithNews = CORE_POSITIONS.map(p => p.sym).filter(s => news.some(n => n.relatedSymbol === s));
-
-  // Filter
   const filtered = selectedSym === 'ALL' ? news : news.filter(n => n.relatedSymbol === selectedSym);
+  const totalCount = filtered.length;
 
-  // Sort / group
   const displayItems: (NewsItem | { _group: string })[] = (() => {
     if (sortBy === 'recent') return [...filtered].sort((a, b) => b.publishedAt - a.publishedAt);
-    // Group by holding (weight order)
     const out: (NewsItem | { _group: string })[] = [];
     const symsInView = selectedSym === 'ALL' ? symsWithNews : [selectedSym];
     for (const sym of symsInView) {
@@ -208,8 +93,6 @@ export default function NewsPage() {
     }
     return out;
   })();
-
-  const totalCount = filtered.length;
 
   return (
     <main className="min-h-screen bg-[#f2f1ec] text-[#202e4a]">
@@ -224,7 +107,6 @@ export default function NewsPage() {
               {lastFetched && <span className="font-mono"> · Updated {lastFetched.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
             </p>
           </div>
-          {/* Sort controls */}
           <div className="flex items-center gap-1 bg-white border border-[#e5e3dd] rounded-lg p-1 shadow-sm shrink-0">
             {(['recent', 'holding'] as const).map(s => (
               <button
@@ -276,11 +158,6 @@ export default function NewsPage() {
           })}
         </div>
 
-        {/* AI Summary (shown when a specific holding is selected) */}
-        {selectedSym !== 'ALL' && (
-          <AISummaryCard sym={selectedSym} news={news} />
-        )}
-
         {/* News grid / grouped list */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -301,7 +178,6 @@ export default function NewsPage() {
             <p className="text-[#8a96a8] text-sm">No news available at this time.</p>
           </div>
         ) : sortBy === 'holding' ? (
-          // Grouped view
           <div className="flex flex-col gap-6">
             {displayItems.reduce<{ sym: string; items: NewsItem[] }[]>((groups, item) => {
               if ('_group' in item) {
@@ -315,10 +191,7 @@ export default function NewsPage() {
               return (
                 <div key={group.sym} className="flex flex-col gap-3">
                   <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setSelectedSym(group.sym)}
-                      className="flex items-center gap-2 group"
-                    >
+                    <button onClick={() => setSelectedSym(group.sym)} className="flex items-center gap-2">
                       <span className="font-mono text-[13px] font-bold text-[#007cba] hover:underline">{group.sym}</span>
                       <span className="text-[11px] text-[#8a96a8] truncate max-w-[200px]">{pos?.issuerName}</span>
                     </button>
@@ -333,14 +206,13 @@ export default function NewsPage() {
             })}
           </div>
         ) : (
-          // Recent view
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {(displayItems as NewsItem[]).map(item => <NewsCard key={item.uuid} item={item} />)}
           </div>
         )}
 
         <footer className="pb-4">
-          <span className="text-[10px] text-[#a8a49e] font-mono">News via Yahoo Finance · Refreshes every 15 min · AI summaries powered by Claude</span>
+          <span className="text-[10px] text-[#a8a49e] font-mono">News via Yahoo Finance · Refreshes every 15 min</span>
         </footer>
       </div>
     </main>
